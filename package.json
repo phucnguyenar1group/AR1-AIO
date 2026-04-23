@@ -4,6 +4,6 @@
   "private": true,
   "description": "Webapp tối ưu đóng gói logistics dựng lại từ dữ liệu HTML trong file DOCX.",
   "scripts": {
-    "start": "node server.js"
+    "start": "node local-server.js"
   }
 }

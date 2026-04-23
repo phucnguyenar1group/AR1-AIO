@@ -25,7 +25,7 @@ http://localhost:3000
 - `assets/styles.css`: toàn bộ style responsive
 - `assets/app.js`: logic tính carton, pallet, container và mô phỏng 3D
 - `assets/ar1-logo.png`: logo thương hiệu AR1
-- `server.js`: static server bằng Node.js
+- `local-server.js`: static server để chạy local bằng Node.js
 
 ## Ghi chú repo
 
