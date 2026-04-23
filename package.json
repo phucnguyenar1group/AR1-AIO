@@ -1,0 +1,9 @@
+{
+  "name": "logistics-packing-optimizer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Webapp tối ưu đóng gói logistics dựng lại từ dữ liệu HTML trong file DOCX.",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
