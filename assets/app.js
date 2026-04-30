@@ -116,7 +116,7 @@ function formatCm(value) {
 }
 
 function formatDims(dim) {
-    return `${numberFormatter.format(round(dim.l))} × ${numberFormatter.format(round(dim.w))} × ${numberFormatter.format(round(dim.h))} cm`;
+    return `${numberFormatter.format(round(dim.l))} Ã— ${numberFormatter.format(round(dim.w))} Ã— ${numberFormatter.format(round(dim.h))} cm`;
 }
 
 function formatPercent(value) {
@@ -392,12 +392,12 @@ function applyScenario(key) {
 function stageConfig(results) {
     if (state.step === 1) {
         return {
-            title: "Cấu trúc hộp trong carton",
-            badge: "Spatial layer · Carton",
+            title: "Cáº¥u trÃºc há»™p trong carton",
+            badge: "Spatial layer Â· Carton",
             quantity: results.carton.qty,
-            unit: "HỘP / THÙNG",
+            unit: "Há»˜P / THÃ™NG",
             efficiency: results.efficiencies.carton,
-            note: `${results.carton.nx} × ${results.carton.ny} × ${results.carton.nz} hộp, xoay theo ${formatDims(results.carton.orientation)}.`,
+            note: `${results.carton.nx} Ã— ${results.carton.ny} Ã— ${results.carton.nz} há»™p, xoay theo ${formatDims(results.carton.orientation)}.`,
             bounds: { l: results.carton.l, w: results.carton.w, h: results.carton.h },
             item: { l: results.carton.orientation.l, w: results.carton.orientation.w, h: results.carton.orientation.h },
             layout: { nx: results.carton.nx, ny: results.carton.ny, nz: results.carton.nz, base: 0 },
@@ -407,12 +407,12 @@ function stageConfig(results) {
 
     if (state.step === 2) {
         return {
-            title: "Sắp xếp carton trên pallet",
-            badge: "Spatial layer · Pallet",
+            title: "Sáº¯p xáº¿p carton trÃªn pallet",
+            badge: "Spatial layer Â· Pallet",
             quantity: results.pallet.qty,
-            unit: "THÙNG / PALLET",
+            unit: "THÃ™NG / PALLET",
             efficiency: results.efficiencies.pallet,
-            note: `${results.pallet.nx} × ${results.pallet.ny} × ${results.pallet.nz} carton trong vùng hữu dụng ${formatCm(results.pallet.maxH - results.pallet.base)}.`,
+            note: `${results.pallet.nx} Ã— ${results.pallet.ny} Ã— ${results.pallet.nz} carton trong vÃ¹ng há»¯u dá»¥ng ${formatCm(results.pallet.maxH - results.pallet.base)}.`,
             bounds: { l: results.pallet.l, w: results.pallet.w, h: results.pallet.realH },
             item: { l: results.pallet.orientation.l, w: results.pallet.orientation.w, h: results.carton.h },
             layout: { nx: results.pallet.nx, ny: results.pallet.ny, nz: results.pallet.nz, base: results.pallet.base },
@@ -421,12 +421,12 @@ function stageConfig(results) {
     }
 
     return {
-        title: "Bố trí pallet trong container",
-        badge: "Spatial layer · Container",
+        title: "Bá»‘ trÃ­ pallet trong container",
+        badge: "Spatial layer Â· Container",
         quantity: results.container.qty,
         unit: "PALLET / CONT",
         efficiency: results.efficiencies.container,
-        note: `${results.container.nx} × ${results.container.ny} × ${results.container.nz} pallet trong container ${refs.containerType.selectedOptions[0].text}.`,
+        note: `${results.container.nx} Ã— ${results.container.ny} Ã— ${results.container.nz} pallet trong container ${refs.containerType.selectedOptions[0].text}.`,
         bounds: { l: results.container.l, w: results.container.w, h: results.container.h },
         item: { l: results.container.orientation.l, w: results.container.orientation.w, h: results.pallet.realH },
         layout: { nx: results.container.nx, ny: results.container.ny, nz: results.container.nz, base: 0 },
@@ -435,8 +435,8 @@ function stageConfig(results) {
 }
 
 function renderMetrics(results) {
-    const cartonDims = `${numberFormatter.format(results.carton.l)} × ${numberFormatter.format(results.carton.w)} × ${numberFormatter.format(results.carton.h)} cm`;
-    const cartonNote = `${results.carton.qty} hộp / thùng, hiệu suất ${formatPercent(results.efficiencies.carton)}${results.carton.overshoot ? `, dư ${results.carton.overshoot} hộp so với mục tiêu.` : "."}`;
+    const cartonDims = `${numberFormatter.format(results.carton.l)} Ã— ${numberFormatter.format(results.carton.w)} Ã— ${numberFormatter.format(results.carton.h)} cm`;
+    const cartonNote = `${results.carton.qty} há»™p / thÃ¹ng, hiá»‡u suáº¥t ${formatPercent(results.efficiencies.carton)}${results.carton.overshoot ? `, dÆ° ${results.carton.overshoot} há»™p so vá»›i má»¥c tiÃªu.` : "."}`;
 
     if (refs.suggestedCarton) {
         refs.suggestedCarton.textContent = cartonDims;
@@ -444,9 +444,9 @@ function renderMetrics(results) {
     if (refs.cartonQuickSpec) {
         refs.cartonQuickSpec.textContent = cartonNote;
     }
-    refs.palletQuickSpec.textContent = `${results.pallet.qty} thùng / pallet, ${results.pallet.nx} × ${results.pallet.ny} × ${results.pallet.nz}, cao thực tế ${formatCm(results.pallet.realH)}.`;
-    refs.palletLayerSpec.textContent = `1 layer pallet: ${results.pallet.layerQty} thùng, độ phủ ${formatPercent(results.pallet.layerCoverage)}.`;
-    refs.containerQuickSpec.textContent = `${results.container.qty} pallet / container, ${results.container.nx} × ${results.container.ny} × ${results.container.nz}, lọt lòng ${formatDims(results.container)}.`;
+    refs.palletQuickSpec.textContent = `${results.pallet.qty} thÃ¹ng / pallet, ${results.pallet.nx} Ã— ${results.pallet.ny} Ã— ${results.pallet.nz}, cao thá»±c táº¿ ${formatCm(results.pallet.realH)}.`;
+    refs.palletLayerSpec.textContent = `1 layer pallet: ${results.pallet.layerQty} thÃ¹ng, Ä‘á»™ phá»§ ${formatPercent(results.pallet.layerCoverage)}.`;
+    refs.containerQuickSpec.textContent = `${results.container.qty} pallet / container, ${results.container.nx} Ã— ${results.container.ny} Ã— ${results.container.nz}, lá»t lÃ²ng ${formatDims(results.container)}.`;
 
     refs.dashEff.textContent = integerFormatter.format(results.pallet.layerQty);
     refs.dashPalletCoverage.textContent = formatPercent(results.pallet.layerCoverage);
@@ -454,40 +454,40 @@ function renderMetrics(results) {
 }
 
 function renderBreakdowns(results) {
-    refs.cartonBreakdownTitle.textContent = `${results.carton.qty} hộp / thùng`;
-    refs.cartonBreakdownBody.textContent = `Carton đề xuất ${formatDims(results.carton)}. Bố trí ${results.carton.nx} × ${results.carton.ny} × ${results.carton.nz} theo chiều đặt ${formatDims(results.carton.orientation)}.`;
+    refs.cartonBreakdownTitle.textContent = `${results.carton.qty} há»™p / thÃ¹ng`;
+    refs.cartonBreakdownBody.textContent = `Carton Ä‘á» xuáº¥t ${formatDims(results.carton)}. Bá»‘ trÃ­ ${results.carton.nx} Ã— ${results.carton.ny} Ã— ${results.carton.nz} theo chiá»u Ä‘áº·t ${formatDims(results.carton.orientation)}.`;
 
-    refs.palletBreakdownTitle.textContent = `${results.pallet.qty} thùng / pallet`;
-    refs.palletBreakdownBody.textContent = `Pallet ${results.pallet.nx} × ${results.pallet.ny} × ${results.pallet.nz} với chiều cao thực tế ${formatCm(results.pallet.realH)} trên mặt chuẩn ${numberFormatter.format(results.pallet.l)} × ${numberFormatter.format(results.pallet.w)} cm. Mỗi layer chứa ${results.pallet.layerQty} thùng, phủ ${formatPercent(results.pallet.layerCoverage)} mặt pallet.`;
+    refs.palletBreakdownTitle.textContent = `${results.pallet.qty} thÃ¹ng / pallet`;
+    refs.palletBreakdownBody.textContent = `Pallet ${results.pallet.nx} Ã— ${results.pallet.ny} Ã— ${results.pallet.nz} vá»›i chiá»u cao thá»±c táº¿ ${formatCm(results.pallet.realH)} trÃªn máº·t chuáº©n ${numberFormatter.format(results.pallet.l)} Ã— ${numberFormatter.format(results.pallet.w)} cm. Má»—i layer chá»©a ${results.pallet.layerQty} thÃ¹ng, phá»§ ${formatPercent(results.pallet.layerCoverage)} máº·t pallet.`;
 
     refs.containerBreakdownTitle.textContent = `${results.container.qty} pallet / cont`;
-    refs.containerBreakdownBody.textContent = `Container nhận được ${results.container.nx} × ${results.container.ny} × ${results.container.nz} pallet. Tổng cộng ${integerFormatter.format(results.metrics.totalUnits)} đơn vị sản phẩm trong một chuyến.`;
+    refs.containerBreakdownBody.textContent = `Container nháº­n Ä‘Æ°á»£c ${results.container.nx} Ã— ${results.container.ny} Ã— ${results.container.nz} pallet. Tá»•ng cá»™ng ${integerFormatter.format(results.metrics.totalUnits)} Ä‘Æ¡n vá»‹ sáº£n pháº©m trong má»™t chuyáº¿n.`;
 }
 
 function renderRecommendations(results) {
     const items = [];
 
     if (results.carton.overshoot > 0) {
-        items.push(`Carton hiện dư ${results.carton.overshoot} hộp so với mục tiêu mỗi thùng. Nếu cần bám sát số lượng đóng gói tuyệt đối, nên cân nhắc giới hạn thêm loại xoay hoặc thay đổi mục tiêu đóng thùng.`);
+        items.push(`Carton hiá»‡n dÆ° ${results.carton.overshoot} há»™p so vá»›i má»¥c tiÃªu má»—i thÃ¹ng. Náº¿u cáº§n bÃ¡m sÃ¡t sá»‘ lÆ°á»£ng Ä‘Ã³ng gÃ³i tuyá»‡t Ä‘á»‘i, nÃªn cÃ¢n nháº¯c giá»›i háº¡n thÃªm loáº¡i xoay hoáº·c thay Ä‘á»•i má»¥c tiÃªu Ä‘Ã³ng thÃ¹ng.`);
     } else {
-        items.push("Phương án carton hiện khớp đúng số lượng mục tiêu nên phù hợp cho dây chuyền cần đóng gói nhất quán.");
+        items.push("PhÆ°Æ¡ng Ã¡n carton hiá»‡n khá»›p Ä‘Ãºng sá»‘ lÆ°á»£ng má»¥c tiÃªu nÃªn phÃ¹ há»£p cho dÃ¢y chuyá»n cáº§n Ä‘Ã³ng gÃ³i nháº¥t quÃ¡n.");
     }
 
     if (results.efficiencies.pallet < 75) {
-        items.push("Hiệu suất pallet còn thấp. Bạn nên thử pallet chuẩn khác hoặc điều chỉnh số hộp mục tiêu mỗi thùng để footprint carton bám sát mặt pallet hơn.");
+        items.push("Hiá»‡u suáº¥t pallet cÃ²n tháº¥p. Báº¡n nÃªn thá»­ pallet chuáº©n khÃ¡c hoáº·c Ä‘iá»u chá»‰nh sá»‘ há»™p má»¥c tiÃªu má»—i thÃ¹ng Ä‘á»ƒ footprint carton bÃ¡m sÃ¡t máº·t pallet hÆ¡n.");
     } else {
-        items.push("Mặt pallet đang được khai thác khá tốt. Phần không gian còn lại chủ yếu nằm ở biên hoặc ở tầng cao cuối cùng.");
+        items.push("Máº·t pallet Ä‘ang Ä‘Æ°á»£c khai thÃ¡c khÃ¡ tá»‘t. Pháº§n khÃ´ng gian cÃ²n láº¡i chá»§ yáº¿u náº±m á»Ÿ biÃªn hoáº·c á»Ÿ táº§ng cao cuá»‘i cÃ¹ng.");
     }
 
     if (results.container.qty === 0) {
-        items.push("Cấu hình hiện tại không thể đặt pallet vào container. Hãy giảm chiều cao pallet hoặc chọn loại container lớn hơn.");
+        items.push("Cáº¥u hÃ¬nh hiá»‡n táº¡i khÃ´ng thá»ƒ Ä‘áº·t pallet vÃ o container. HÃ£y giáº£m chiá»u cao pallet hoáº·c chá»n loáº¡i container lá»›n hÆ¡n.");
     } else if (results.efficiencies.total < 55) {
-        items.push("Hiệu suất tổng vẫn còn dư địa lớn. Tác động mạnh nhất lúc này thường nằm ở việc tối ưu carton trước, vì hiệu ứng sẽ nhân lên ở pallet và container.");
+        items.push("Hiá»‡u suáº¥t tá»•ng váº«n cÃ²n dÆ° Ä‘á»‹a lá»›n. TÃ¡c Ä‘á»™ng máº¡nh nháº¥t lÃºc nÃ y thÆ°á»ng náº±m á»Ÿ viá»‡c tá»‘i Æ°u carton trÆ°á»›c, vÃ¬ hiá»‡u á»©ng sáº½ nhÃ¢n lÃªn á»Ÿ pallet vÃ  container.");
     } else {
-        items.push("Hiệu suất tổng đã ở mức tốt cho một mô hình xếp hình học cơ bản. Bước tiếp theo nếu cần là bổ sung thêm ràng buộc tải trọng hoặc chừa khe thao tác thực tế.");
+        items.push("Hiá»‡u suáº¥t tá»•ng Ä‘Ã£ á»Ÿ má»©c tá»‘t cho má»™t mÃ´ hÃ¬nh xáº¿p hÃ¬nh há»c cÆ¡ báº£n. BÆ°á»›c tiáº¿p theo náº¿u cáº§n lÃ  bá»• sung thÃªm rÃ ng buá»™c táº£i trá»ng hoáº·c chá»«a khe thao tÃ¡c thá»±c táº¿.");
     }
 
-    items.push(`Tổng thể tích sản phẩm thuần là ${numberFormatter.format((results.metrics.totalUnits * results.metrics.unitVolume) / 1000000)} m³ trên mỗi container, so với dung tích tham chiếu ${numberFormatter.format(results.metrics.containerVolume / 1000000)} m³.`);
+    items.push(`Tá»•ng thá»ƒ tÃ­ch sáº£n pháº©m thuáº§n lÃ  ${numberFormatter.format((results.metrics.totalUnits * results.metrics.unitVolume) / 1000000)} mÂ³ trÃªn má»—i container, so vá»›i dung tÃ­ch tham chiáº¿u ${numberFormatter.format(results.metrics.containerVolume / 1000000)} mÂ³.`);
 
     refs.recommendations.innerHTML = items.map((item) => `<li>${item}</li>`).join("");
 }
@@ -497,21 +497,21 @@ function renderTable(results) {
         {
             label: "Carton",
             dims: formatDims(results.carton),
-            layout: `${results.carton.nx} × ${results.carton.ny} × ${results.carton.nz}`,
-            capacity: `${results.carton.qty} hộp`,
+            layout: `${results.carton.nx} Ã— ${results.carton.ny} Ã— ${results.carton.nz}`,
+            capacity: `${results.carton.qty} há»™p`,
             efficiency: formatPercent(results.efficiencies.carton)
         },
         {
             label: "Pallet",
-            dims: `${numberFormatter.format(results.pallet.l)} × ${numberFormatter.format(results.pallet.w)} × ${numberFormatter.format(results.pallet.realH)} cm`,
-            layout: `${results.pallet.nx} × ${results.pallet.ny} × ${results.pallet.nz} | 1 layer: ${results.pallet.layerQty}`,
-            capacity: `${results.pallet.qty} thùng`,
+            dims: `${numberFormatter.format(results.pallet.l)} Ã— ${numberFormatter.format(results.pallet.w)} Ã— ${numberFormatter.format(results.pallet.realH)} cm`,
+            layout: `${results.pallet.nx} Ã— ${results.pallet.ny} Ã— ${results.pallet.nz} | 1 layer: ${results.pallet.layerQty}`,
+            capacity: `${results.pallet.qty} thÃ¹ng`,
             efficiency: formatPercent(results.efficiencies.pallet)
         },
         {
             label: "Container",
             dims: formatDims(results.container),
-            layout: `${results.container.nx} × ${results.container.ny} × ${results.container.nz}`,
+            layout: `${results.container.nx} Ã— ${results.container.ny} Ã— ${results.container.nz}`,
             capacity: `${results.container.qty} pallet`,
             efficiency: formatPercent(results.efficiencies.total)
         }
@@ -855,7 +855,7 @@ function drawScene(stage) {
 
     if (visibleCount < total) {
         ctx.fillStyle = "rgba(96, 112, 126, 0.92)";
-        ctx.fillText(`Đang rút gọn hình vẽ còn ${visibleCount} khối để giữ hiệu năng canvas.`, width * 0.05, height * 0.91);
+        ctx.fillText(`Äang rÃºt gá»n hÃ¬nh váº½ cÃ²n ${visibleCount} khá»‘i Ä‘á»ƒ giá»¯ hiá»‡u nÄƒng canvas.`, width * 0.05, height * 0.91);
     }
     ctx.restore();
 }
@@ -877,15 +877,15 @@ function renderStage(results) {
 
 function buildReport(results) {
     return [
-        "BAO CAO TOI UU DONG GOI LOGISTICS",
+        "BÁO CÁO TỐI ƯU ĐÓNG GÓI LOGISTICS",
         "",
-        `Don vi san pham: ${formatDims(results.form.box)}`,
-        `Muc tieu moi carton: ${results.form.box.target} hop`,
-        `Carton de xuat: ${formatDims(results.carton)} | ${results.carton.qty} hop | hieu suat ${formatPercent(results.efficiencies.carton)}`,
-        `Pallet: ${numberFormatter.format(results.pallet.l)} x ${numberFormatter.format(results.pallet.w)} x ${numberFormatter.format(results.pallet.realH)} cm | ${results.pallet.qty} thung | hieu suat ${formatPercent(results.efficiencies.pallet)}`,
+        `Đơn vị sản phẩm: ${formatDims(results.form.box)}`,
+        `Mục tiêu mỗi carton: ${results.form.box.target} hộp`,
+        `Carton đề xuất: ${formatDims(results.carton)} | ${results.carton.qty} hộp | hiệu suất ${formatPercent(results.efficiencies.carton)}`,
+        `Pallet: ${numberFormatter.format(results.pallet.l)} x ${numberFormatter.format(results.pallet.w)} x ${numberFormatter.format(results.pallet.realH)} cm | ${results.pallet.qty} thùng | hiệu suất ${formatPercent(results.efficiencies.pallet)}`,
         `Container: ${formatDims(results.container)} | ${results.container.qty} pallet`,
-        `Tong don vi/container: ${integerFormatter.format(results.metrics.totalUnits)}`,
-        `Hieu suat tong: ${formatPercent(results.efficiencies.total)} | Lang phi: ${formatPercent(results.metrics.waste)}`
+        `Tổng đơn vị/container: ${integerFormatter.format(results.metrics.totalUnits)}`,
+        `Hiệu suất tổng: ${formatPercent(results.efficiencies.total)} | Lãng phí: ${formatPercent(results.metrics.waste)}`
     ].join("\n");
 }
 
@@ -897,9 +897,9 @@ async function copyReport() {
     const originalText = refs.copyReportBtn.textContent;
     try {
         await navigator.clipboard.writeText(buildReport(state.results));
-        refs.copyReportBtn.textContent = "Da sao chep";
+        refs.copyReportBtn.textContent = "Đã sao chép";
     } catch (error) {
-        refs.copyReportBtn.textContent = "Khong sao chep duoc";
+        refs.copyReportBtn.textContent = "Không sao chép được";
     }
 
     window.setTimeout(() => {

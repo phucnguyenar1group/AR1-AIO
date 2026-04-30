@@ -1,33 +1,72 @@
-# Tối ưu Logistic AR1
+# AR1 Internal Tools (Unified Web)
 
-Webapp tối ưu đóng gói logistics cho AR1, gồm các chức năng chính:
+Du an nay da duoc gom tu 2 web rieng thanh 1 web dung chung shell:
 
-- gợi ý kích thước carton
-- tính số thùng trên mỗi layer pallet
-- tính độ phủ mặt pallet
-- mô phỏng bố trí 3D tương tác
+- Module 1: Logistics Optimizer
+- Module 2: PDF Splitter
 
-## Chạy local
+Muc tieu la de mo rong them module moi ma khong pha vo cac module cu.
+
+## Chay local
 
 ```powershell
-npm start
+cd "D:\AR1 AIO\logistics"
+npm run start
 ```
 
-Sau đó mở:
+Mo trinh duyet:
 
 ```text
 http://localhost:3000
 ```
 
-## Cấu trúc chính
+## Kien truc hien tai
 
-- `index.html`: giao diện chính của ứng dụng
-- `assets/styles.css`: toàn bộ style responsive
-- `assets/app.js`: logic tính carton, pallet, container và mô phỏng 3D
-- `assets/ar1-logo.png`: logo thương hiệu AR1
-- `local-server.js`: static server để chạy local bằng Node.js
+- `index.html`
+  - Chua app shell dung chung (sidebar + viewport module).
+  - Moi item sidebar khai bao metadata module qua data-attribute:
+    - `data-module-id`
+    - `data-module-script`
+    - `data-module-script-type`
+  - View cua module map bang `data-module-view`.
 
-## Ghi chú repo
+- `assets/shell.js`
+  - Quan ly chuyen module trong sidebar.
+  - Lazy-load script cua module khi mo lan dau.
+  - Dam bao moi module chi load 1 lan.
 
-- File `_extracted_source.html` chỉ dùng tham chiếu nội bộ và đã được thêm vào `.gitignore`.
-- App hiện tối ưu theo hình học thể tích và độ phủ bề mặt, chưa bao gồm tải trọng thực tế hoặc khe hở thao tác kho.
+- `assets/app.js`
+  - Logic rieng cua Logistics (carton -> pallet -> container + canvas 3D).
+
+- `assets/pdf-splitter.js`
+  - Logic rieng cua PDF Splitter (OCR/classify/split/download).
+
+- `assets/styles.src.css`
+  - File nguon build Tailwind CLI.
+
+- `assets/styles.custom.css`
+  - CSS tuy chinh hien tai cua du an.
+
+- `assets/styles.css`
+  - File output sau khi build Tailwind.
+
+## Luong CSS (Tailwind CLI)
+
+```powershell
+npm run build:css
+npm run watch:css
+```
+
+`npm run start` da tu dong build CSS truoc khi chay server.
+
+## Cach them module moi (goi y)
+
+1. Them 1 button trong sidebar voi `data-module-id`, `data-module-script`, `data-view-target`.
+2. Them 1 section view co `data-module-view` trung voi `data-module-id`.
+3. Tao file script module moi trong `assets/`.
+4. Khong can sua `shell.js` neu van theo dung data-attribute.
+
+## Luu y
+
+- `node_modules/` va log tam da duoc ignore qua `.gitignore`.
+- `_extracted_source.html` chi de tham chieu noi bo.

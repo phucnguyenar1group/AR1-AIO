@@ -1,0 +1,9 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@source "../index.html";
+@source "./app.js";
+@source "./pdf-splitter.js";
+
+/* Existing project styles */
+@import "./styles.custom.css";

@@ -2,8 +2,15 @@
   "name": "logistics-packing-optimizer",
   "version": "1.0.0",
   "private": true,
-  "description": "Webapp tối ưu đóng gói logistics dựng lại từ dữ liệu HTML trong file DOCX.",
+  "description": "AR1 internal tools webapp",
   "scripts": {
-    "start": "node local-server.js"
+    "build:css": "tailwindcss -i ./assets/styles.src.css -o ./assets/styles.css",
+    "watch:css": "tailwindcss -i ./assets/styles.src.css -o ./assets/styles.css --watch",
+    "start": "npm run build:css && node local-server.js",
+    "dev": "npm run start"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.2.4",
+    "tailwindcss": "^4.2.4"
   }
 }
