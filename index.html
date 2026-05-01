@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
@@ -59,12 +59,12 @@
             <section id="view-logistics" class="portal-view active" data-module-view="logistics">
                 <div class="app-shell">
                     <header class="module-header" aria-label="Page title">
-                        <h1>Tối ưu dim thùng so với pallet</h1>
+                        <h1>Tối ưu logistics</h1>
                     </header>
 
                     <section class="metrics-grid">
                         <article class="metric-card panel">
-                            <span class="metric-label">Số lượng thùng/layer</span>
+                            <span class="metric-label">Số thùng/layer pallet</span>
                             <strong id="dash-total-eff">0</strong>
                         </article>
                         <article class="metric-card panel">
@@ -72,52 +72,63 @@
                             <strong id="dash-pallet-coverage">0%</strong>
                         </article>
                         <article class="metric-card metric-card-wide panel">
-                            <span class="metric-label">Gợi ý carton</span>
+                            <span class="metric-label">Gợi ý dim thùng</span>
                             <strong id="dash-carton-suggest">-- x -- x -- cm</strong>
                         </article>
                     </section>
 
                     <div class="workspace-grid">
-                        <aside class="panel control-panel">
+                        <div class="controls-column">
                             <div class="step-switch" role="tablist" aria-label="Luồng đóng gói">
                                 <button type="button" class="step-btn active" data-step-button="1">1. Hộp và thùng</button>
                                 <button type="button" class="step-btn" data-step-button="2">2. Pallet</button>
                                 <button type="button" class="step-btn" data-step-button="3">3. Container</button>
+                                <button type="button" class="step-btn" data-step-button="4">4. Multi-SKU</button>
                             </div>
 
+                            <aside class="control-panel">
                             <section class="step-panel active" data-step-panel="1">
+                                <div class="field-group-title">Kích thước hộp (cm)</div>
                                 <div class="input-grid three">
                                     <label>
-                                        <span>Dài đơn vị (cm)</span>
-                                        <input id="box-l" type="number" step="0.1" min="0.1" value="12.5">
+                                        <span>Dài</span>
+                                        <input id="box-l" type="number" step="0.1" min="0.1" placeholder="L">
                                     </label>
                                     <label>
-                                        <span>Rộng đơn vị (cm)</span>
-                                        <input id="box-w" type="number" step="0.1" min="0.1" value="10.2">
+                                        <span>Rộng</span>
+                                        <input id="box-w" type="number" step="0.1" min="0.1" placeholder="W">
                                     </label>
                                     <label>
-                                        <span>Cao đơn vị (cm)</span>
-                                        <input id="box-h" type="number" step="0.1" min="0.1" value="8">
+                                        <span>Cao</span>
+                                        <input id="box-h" type="number" step="0.1" min="0.1" placeholder="H">
                                     </label>
                                 </div>
                                 <label class="stacked-label">
-                                    <span>Số hộp mục tiêu trong 1 thùng</span>
-                                    <input id="target-qty" type="number" min="1" step="1" value="24">
+                                    <span>Số hộp / thùng</span>
+                                    <input id="target-qty" type="number" min="1" step="1" placeholder="Units/carton">
                                 </label>
+
+                                <div class="field-group-title">Safety scoring</div>
+                                <div class="safety-score-card" id="safety-score-card">
+                                    <strong id="safety-winner">Safety winner: --</strong>
+                                    <p id="safety-summary">Nhap du lieu de de xuat phuong an bo tri carton an toan hon.</p>
+                                    <div id="safety-options"></div>
+                                </div>
                             </section>
 
                             <section class="step-panel" data-step-panel="2">
+                                <div class="field-group-title">Kích thước thùng gợi ý (cm)</div>
                                 <div class="input-grid three">
                                     <label>
-                                        <span>Dài thùng (cm)</span>
+                                        <span>Dài</span>
                                         <input id="carton-l" type="number" step="0.1" min="1" value="31">
                                     </label>
                                     <label>
-                                        <span>Rộng thùng (cm)</span>
+                                        <span>Rộng</span>
                                         <input id="carton-w" type="number" step="0.1" min="1" value="26">
                                     </label>
                                     <label>
-                                        <span>Cao thùng (cm)</span>
+                                        <span>Cao</span>
                                         <input id="carton-h" type="number" step="0.1" min="1" value="33">
                                     </label>
                                 </div>
@@ -159,39 +170,36 @@
                                 <div class="mini-readout" id="pallet-layer-spec">
                                     1 layer pallet: -- thùng, độ phủ --%.
                                 </div>
+                                <div class="pallet-overhang-card" id="pallet-overhang-card">
+                                    <strong>Overhang check</strong>
+                                    <p id="pallet-overhang-safe">Khong overhang: --</p>
+                                    <p id="pallet-overhang-keep">Giu so thung cu: overhang L --, W --.</p>
+                                </div>
                             </section>
 
                             <section class="step-panel" data-step-panel="3">
                                 <label class="stacked-label">
-                                    <span>Nhóm hãng cont</span>
-                                    <select id="cont-group">
-                                        <option value="g1">Nhóm 1: WHSU / TEMU / ONEU</option>
-                                        <option value="g2">Nhóm 2: SZLU / TCLU / HDMU</option>
-                                        <option value="g3">Nhóm 3: TTNU / EMCU / EITU</option>
-                                    </select>
-                                </label>
-                                <label class="stacked-label">
                                     <span>Loại container</span>
                                     <select id="cont-type">
-                                        <option value="20dc">20' Dry Container</option>
-                                        <option value="40dc">40' Dry Container</option>
-                                        <option value="40hc">40' High Cube</option>
-                                        <option value="40rf">40' Reefer (RF)</option>
+                                        <option value="20dc">20' Dry Container (DC)</option>
+                                        <option value="40dc">40' Dry Container (DC)</option>
+                                        <option value="40hc">40' High Cube (HC)</option>
+                                        <option value="40rf" selected>40' Reefer (RF)</option>
                                     </select>
                                 </label>
 
                                 <div class="input-grid three">
                                     <label>
                                         <span>Dài trong (cm)</span>
-                                        <input id="cont-l" type="number" step="0.1" min="1" value="590">
+                                        <input id="cont-l" type="number" step="0.1" min="1" value="1154">
                                     </label>
                                     <label>
                                         <span>Rộng trong (cm)</span>
-                                        <input id="cont-w" type="number" step="0.1" min="1" value="235">
+                                        <input id="cont-w" type="number" step="0.1" min="1" value="228">
                                     </label>
                                     <label>
                                         <span>Cao trong (cm)</span>
-                                        <input id="cont-h" type="number" step="0.1" min="1" value="239">
+                                        <input id="cont-h" type="number" step="0.1" min="1" value="223">
                                     </label>
                                 </div>
                                 <div class="subtle-note" id="container-quick-spec">
@@ -199,11 +207,85 @@
                                 </div>
                             </section>
 
+                            <section class="step-panel" data-step-panel="4">
+                                <div class="field-group-title">Multi-SKU Loading (Beta)</div>
+                                <label class="stacked-label">
+                                    <span>Loại container</span>
+                                    <select id="multi-cont-type">
+                                        <option value="20dc">20' Dry Container (DC)</option>
+                                        <option value="40dc">40' Dry Container (DC)</option>
+                                        <option value="40hc">40' High Cube (HC)</option>
+                                        <option value="40rf" selected>40' Reefer (RF)</option>
+                                    </select>
+                                </label>
+                                <div class="input-grid three">
+                                    <label>
+                                        <span>Dài trong (cm)</span>
+                                        <input id="multi-cont-l" type="number" step="0.1" min="1" value="1154">
+                                    </label>
+                                    <label>
+                                        <span>Rộng trong (cm)</span>
+                                        <input id="multi-cont-w" type="number" step="0.1" min="1" value="228">
+                                    </label>
+                                    <label>
+                                        <span>Cao trong (cm)</span>
+                                        <input id="multi-cont-h" type="number" step="0.1" min="1" value="223">
+                                    </label>
+                                </div>
+                                <div class="subtle-note">
+                                    Đóng trước vào trước và nằm sâu trong container. Đóng sau nằm gần cửa hơn.
+                                </div>
+                                <div class="multi-pack-controls">
+                                    <label class="stacked-label">
+                                        <span>Che do xep Multi-SKU</span>
+                                        <select id="multi-pack-mode">
+                                            <option value="maximize_qty" selected>Uu tien xep du so luong</option>
+                                            <option value="balanced">Can bang thu tu SKU</option>
+                                        </select>
+                                    </label>
+                                    <label class="multi-pack-checkbox">
+                                        <input id="multi-relax-tail" type="checkbox" checked>
+                                        <span>Noi nhe thu tu o cuoi container (de khong bi ket SKU)</span>
+                                    </label>
+                                </div>
+                                <div class="multi-sku-catalog">
+                                    <div class="multi-sku-catalog-head">Thu vien SKU (import nhanh)</div>
+                                    <textarea id="multi-sku-catalog-input" rows="5" placeholder="Dan du lieu tu Excel/CSV: SKU, Units/Carton, L, W, H (co tieu de cang tot)."></textarea>
+                                    <div class="action-row multi-sku-catalog-actions">
+                                        <button id="multi-sku-catalog-import-btn" type="button" class="ghost-btn">Import SKU</button>
+                                        <button id="multi-sku-catalog-clear-btn" type="button" class="ghost-btn">Xoa thu vien</button>
+                                    </div>
+                                    <div id="multi-sku-catalog-status" class="mini-readout">Chua import thu vien SKU.</div>
+                                </div>
+                                <div class="multi-view-toggles">
+                                    <label><input id="multi-show-shell" type="checkbox" checked> Hiện vỏ container</label>
+                                    <label><input id="multi-xray-shell" type="checkbox" checked> Xem lòng trong</label>
+                                </div>
+                                <div class="action-row multi-sku-actions">
+                                    <button id="multi-sku-add-btn" type="button" class="ghost-btn">+ Thêm SKU</button>
+                                </div>
+                                <div id="multi-sku-list" class="multi-sku-list"></div>
+                                <div class="multi-kpi-grid">
+                                    <article class="multi-kpi-card">
+                                        <span>Tong CBM da xep</span>
+                                        <strong id="multi-loaded-cbm">-- m3</strong>
+                                    </article>
+                                    <article class="multi-kpi-card">
+                                        <span>Tong so thung da xep</span>
+                                        <strong id="multi-loaded-boxes">--</strong>
+                                    </article>
+                                </div>
+                                <div class="mini-readout" id="multi-sku-summary">
+                                    Nhập danh sách SKU để mô phỏng xếp nhiều loại thùng trong cùng 1 container.
+                                </div>
+                            </section>
+
                             <div class="action-row">
                                 <button id="recalculate-btn" type="button" class="primary-btn">Cập nhật tính toán</button>
                                 <button id="copy-report-btn" type="button" class="ghost-btn">Sao chép báo cáo</button>
                             </div>
-                        </aside>
+                            </aside>
+                        </div>
 
                         <section class="panel visualization-panel">
                             <div class="visual-head">
@@ -223,6 +305,10 @@
                                     <span>Kéo để xoay</span>
                                     <span>Cuộn để zoom</span>
                                     <span>Nhấn đúp để reset góc nhìn</span>
+                                </div>
+                                <div id="multi-direction-hint" class="multi-direction-hint" hidden>
+                                    <span class="dir-chip dir-deep"><i></i>Trong cùng</span>
+                                    <span class="dir-chip dir-door"><i></i>Gần cửa container</span>
                                 </div>
                                 <div class="ring-card">
                                     <div class="eff-ring" id="eff-ring" style="--progress: 0%;">
