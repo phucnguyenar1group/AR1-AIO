@@ -1,3 +1,6 @@
+import * as THREE from "https://esm.sh/three@0.164.1";
+import { OrbitControls } from "https://esm.sh/three@0.164.1/examples/jsm/controls/OrbitControls";
+
 const PALLET_PRESETS = {
     us48x40: { l: 121.9, w: 101.6, label: "US Standard" },
     std120x100: { l: 120, w: 100, label: "Standard 120 x 100" },
@@ -7,7 +10,38 @@ const PALLET_PRESETS = {
 const CONTAINER_PRESETS = {
     "20dc": { l: 590, w: 235, h: 239, label: "20' Dry Container" },
     "40dc": { l: 1203, w: 235, h: 239, label: "40' Dry Container" },
-    "40hc": { l: 1203, w: 235, h: 270, label: "40' High Cube" }
+    "40hc": { l: 1203, w: 235, h: 270, label: "40' High Cube" },
+    "40rf": { l: 1158, w: 229, h: 225, label: "40' Reefer (RF)" }
+};
+
+const CONTAINER_GROUP_PRESETS = {
+    g1: {
+        label: "WHSU / TEMU / ONEU",
+        dims: {
+            "20dc": { l: 590, w: 235, h: 239 },
+            "40dc": { l: 1203, w: 235, h: 239 },
+            "40hc": { l: 1203, w: 235, h: 270 },
+            "40rf": { l: 1158, w: 229, h: 225 }
+        }
+    },
+    g2: {
+        label: "SZLU / TCLU / HDMU",
+        dims: {
+            "20dc": { l: 589, w: 234, h: 238 },
+            "40dc": { l: 1200, w: 234, h: 238 },
+            "40hc": { l: 1200, w: 234, h: 268 },
+            "40rf": { l: 1156, w: 228, h: 224 }
+        }
+    },
+    g3: {
+        label: "TTNU / EMCU / EITU",
+        dims: {
+            "20dc": { l: 588, w: 234, h: 237 },
+            "40dc": { l: 1198, w: 234, h: 237 },
+            "40hc": { l: 1198, w: 234, h: 267 },
+            "40rf": { l: 1154, w: 228, h: 223 }
+        }
+    }
 };
 
 const SCENARIOS = {
@@ -35,14 +69,23 @@ const state = {
     step: 1,
     activePreset: "baseline",
     results: null,
+    cartonManual: false,
     viewer: {
-        yaw: -0.72,
-        pitch: 0.52,
-        zoom: 1,
+        yaw: -0.64,
+        pitch: 0.44,
+        zoom: 1.04,
         dragging: false,
         pointerId: null,
         lastX: 0,
         lastY: 0
+    },
+    three: {
+        renderer: null,
+        scene: null,
+        camera: null,
+        controls: null,
+        stageGroup: null,
+        resizeObserver: null
     }
 };
 
@@ -51,11 +94,15 @@ const refs = {
     boxW: document.getElementById("box-w"),
     boxH: document.getElementById("box-h"),
     targetQty: document.getElementById("target-qty"),
+    cartonL: document.getElementById("carton-l"),
+    cartonW: document.getElementById("carton-w"),
+    cartonH: document.getElementById("carton-h"),
     palletType: document.getElementById("pal-type"),
     palletL: document.getElementById("pal-l"),
     palletW: document.getElementById("pal-w"),
     palletMaxH: document.getElementById("pal-max-h"),
     palletBase: document.getElementById("pal-base"),
+    containerGroup: document.getElementById("cont-group"),
     containerType: document.getElementById("cont-type"),
     containerL: document.getElementById("cont-l"),
     containerW: document.getElementById("cont-w"),
@@ -102,9 +149,12 @@ function clamp(value, min, max) {
 }
 
 function resetViewer() {
-    state.viewer.yaw = -0.72;
-    state.viewer.pitch = 0.52;
-    state.viewer.zoom = 1;
+    state.viewer.yaw = -0.64;
+    state.viewer.pitch = 0.44;
+    state.viewer.zoom = 1.04;
+    if (state.three && state.three.controls && state.three.camera && state.three.stageGroup) {
+        fitCameraToObject(state.three.stageGroup, true);
+    }
 }
 
 function volumeOf(dim) {
@@ -121,6 +171,10 @@ function formatDims(dim) {
 
 function formatPercent(value) {
     return `${percentFormatter.format(clamp(value, 0, 100))}%`;
+}
+
+function formatCbm(value) {
+    return `${percentFormatter.format(Math.max(0, value))} m3`;
 }
 function uniqueBoxOrientations(box) {
     const permutations = [
@@ -227,6 +281,17 @@ function readInteger(input, fallback) {
     return Number.isFinite(value) ? value : fallback;
 }
 
+function syncCartonLoadInputsFromSuggestion(carton, force = false) {
+    if (!refs.cartonL || !refs.cartonW || !refs.cartonH) {
+        return;
+    }
+    if (force || !state.cartonManual) {
+        refs.cartonL.value = String(round(carton.l));
+        refs.cartonW.value = String(round(carton.w));
+        refs.cartonH.value = String(round(carton.h));
+    }
+}
+
 function readFormState() {
     return {
         box: {
@@ -242,6 +307,7 @@ function readFormState() {
             maxH: Math.max(1, readNumber(refs.palletMaxH, 160)),
             base: Math.max(0, readNumber(refs.palletBase, 15))
         },
+        containerGroup: refs.containerGroup ? refs.containerGroup.value : "g1",
         containerPreset: refs.containerType.value,
         container: {
             l: Math.max(1, readNumber(refs.containerL, 590)),
@@ -254,17 +320,24 @@ function readFormState() {
 function computeResults() {
     const form = readFormState();
     const carton = suggestCarton(form.box, form.box.target);
+    syncCartonLoadInputsFromSuggestion(carton);
+    const cartonLoad = {
+        l: Math.max(1, readNumber(refs.cartonL, carton.l)),
+        w: Math.max(1, readNumber(refs.cartonW, carton.w)),
+        h: Math.max(1, readNumber(refs.cartonH, carton.h)),
+        qty: carton.qty
+    };
     const palletSpace = {
         l: form.pallet.l,
         w: form.pallet.w,
         h: Math.max(1, form.pallet.maxH - form.pallet.base)
     };
     const palletFit = getBestFit(
-        { l: carton.l, w: carton.w, h: carton.h },
+        { l: cartonLoad.l, w: cartonLoad.w, h: cartonLoad.h },
         palletSpace
     );
 
-    const palletRealH = round((palletFit.nz * carton.h) + form.pallet.base);
+    const palletRealH = round((palletFit.nz * cartonLoad.h) + form.pallet.base);
     const pallet = {
         ...form.pallet,
         qty: palletFit.total,
@@ -279,9 +352,9 @@ function computeResults() {
             : 0
     };
 
-    const containerFit = pallet.qty > 0
+    const containerFit = carton.qty > 0
         ? getBestFit(
-            { l: pallet.l, w: pallet.w, h: pallet.realH },
+            { l: cartonLoad.l, w: cartonLoad.w, h: cartonLoad.h },
             form.container
         )
         : {
@@ -289,7 +362,7 @@ function computeResults() {
             nx: 0,
             ny: 0,
             nz: 0,
-            item: { l: pallet.l, w: pallet.w, h: pallet.realH },
+            item: { l: cartonLoad.l, w: cartonLoad.w, h: cartonLoad.h },
             usedVolume: 0,
             footprintWaste: form.container.l * form.container.w
         };
@@ -305,25 +378,28 @@ function computeResults() {
 
     const unitVolume = volumeOf(form.box);
     const cartonVolume = volumeOf(carton);
+    const cartonLoadVolume = volumeOf(cartonLoad);
     const palletUsableVolume = form.pallet.l * form.pallet.w * Math.max(1, form.pallet.maxH - form.pallet.base);
     const containerVolume = volumeOf(form.container);
-    const totalUnits = carton.qty * pallet.qty * container.qty;
+    const totalUnits = carton.qty * container.qty;
 
     const efficiencies = {
         carton: (carton.qty * unitVolume / cartonVolume) * 100,
-        pallet: (pallet.qty * cartonVolume / palletUsableVolume) * 100,
-        container: (container.qty * form.pallet.l * form.pallet.w * pallet.realH / containerVolume) * 100,
+        pallet: (pallet.qty * cartonLoadVolume / palletUsableVolume) * 100,
+        container: (container.qty * cartonLoadVolume / containerVolume) * 100,
         total: (totalUnits * unitVolume / containerVolume) * 100
     };
 
     return {
         form,
         carton,
+        cartonLoad,
         pallet,
         container,
         metrics: {
             unitVolume,
             cartonVolume,
+            cartonLoadVolume,
             palletUsableVolume,
             containerVolume,
             totalUnits,
@@ -353,14 +429,23 @@ function applyPalletPreset(key) {
     refs.palletW.value = preset.w;
 }
 
-function applyContainerPreset(key) {
-    const preset = CONTAINER_PRESETS[key];
-    if (!preset) {
+function getContainerDimsByGroup(groupKey, typeKey) {
+    const group = CONTAINER_GROUP_PRESETS[groupKey];
+    if (group && group.dims && group.dims[typeKey]) {
+        return group.dims[typeKey];
+    }
+    const fallback = CONTAINER_PRESETS[typeKey];
+    return fallback ? { l: fallback.l, w: fallback.w, h: fallback.h } : null;
+}
+
+function applyContainerPreset(typeKey, groupKey = (refs.containerGroup ? refs.containerGroup.value : "g1")) {
+    const dims = getContainerDimsByGroup(groupKey, typeKey);
+    if (!dims) {
         return;
     }
-    refs.containerL.value = preset.l;
-    refs.containerW.value = preset.w;
-    refs.containerH.value = preset.h;
+    refs.containerL.value = dims.l;
+    refs.containerW.value = dims.w;
+    refs.containerH.value = dims.h;
 }
 
 function applyScenario(key) {
@@ -378,8 +463,12 @@ function applyScenario(key) {
     applyPalletPreset(scenario.palletPreset);
     refs.palletMaxH.value = scenario.pallet.maxH;
     refs.palletBase.value = scenario.pallet.base;
+    if (refs.containerGroup) {
+        refs.containerGroup.value = "g1";
+    }
     refs.containerType.value = scenario.containerPreset;
-    applyContainerPreset(scenario.containerPreset);
+    applyContainerPreset(scenario.containerPreset, refs.containerGroup ? refs.containerGroup.value : "g1");
+    state.cartonManual = false;
 
     document.querySelectorAll(".preset-btn").forEach((button) => {
         button.classList.toggle("active", button.dataset.preset === key);
@@ -413,29 +502,33 @@ function stageConfig(results) {
             efficiency: results.efficiencies.pallet,
             note: `${results.pallet.nx} x ${results.pallet.ny} x ${results.pallet.nz} carton trong vùng hữu dụng ${formatCm(results.pallet.maxH - results.pallet.base)}.`,
             bounds: { l: results.pallet.l, w: results.pallet.w, h: results.pallet.realH },
-            item: { l: results.pallet.orientation.l, w: results.pallet.orientation.w, h: results.carton.h },
+            item: { l: results.pallet.orientation.l, w: results.pallet.orientation.w, h: results.cartonLoad.h },
             layout: { nx: results.pallet.nx, ny: results.pallet.ny, nz: results.pallet.nz, base: results.pallet.base },
             color: "#ee9b00"
         };
     }
 
     return {
-        title: "Bố trí pallet trong container",
+        title: "Floor loading thùng trong container",
         badge: "Spatial layer - Container",
         quantity: results.container.qty,
-        unit: "PALLET / CONT",
+        unit: "THÙNG / CONT",
         efficiency: results.efficiencies.container,
-        note: `${results.container.nx} x ${results.container.ny} x ${results.container.nz} pallet trong container ${refs.containerType.selectedOptions[0].text}.`,
+        note: `${results.container.nx} x ${results.container.ny} x ${results.container.nz} thùng trong ${refs.containerType.selectedOptions[0].text}.`,
         bounds: { l: results.container.l, w: results.container.w, h: results.container.h },
-        item: { l: results.container.orientation.l, w: results.container.orientation.w, h: results.pallet.realH },
+        item: { l: results.container.orientation.l, w: results.container.orientation.w, h: results.container.orientation.h },
         layout: { nx: results.container.nx, ny: results.container.ny, nz: results.container.nz, base: 0 },
-        color: "#bb3e03"
+        color: "#ee9b00"
     };
 }
 
 function renderMetrics(results) {
     const cartonDims = `${numberFormatter.format(results.carton.l)} x ${numberFormatter.format(results.carton.w)} x ${numberFormatter.format(results.carton.h)} cm`;
     const cartonNote = `${results.carton.qty} hộp / thùng, hiệu suất ${formatPercent(results.efficiencies.carton)}${results.carton.overshoot ? `, dư ${results.carton.overshoot} hộp so với mục tiêu.` : "."}`;
+    const loadedCbm = (results.container.qty * results.metrics.cartonLoadVolume) / 1000000;
+    const capacityCbm = results.metrics.containerVolume / 1000000;
+    const remainingCbm = Math.max(0, capacityCbm - loadedCbm);
+    const groupLabel = CONTAINER_GROUP_PRESETS[results.form.containerGroup]?.label || "Nhóm mặc định";
 
     if (refs.suggestedCarton) {
         refs.suggestedCarton.textContent = cartonDims;
@@ -443,9 +536,9 @@ function renderMetrics(results) {
     if (refs.cartonQuickSpec) {
         refs.cartonQuickSpec.textContent = cartonNote;
     }
-    refs.palletQuickSpec.textContent = `${results.pallet.qty} thùng / pallet, ${results.pallet.nx} x ${results.pallet.ny} x ${results.pallet.nz}, cao thực tế ${formatCm(results.pallet.realH)}.`;
+    refs.palletQuickSpec.textContent = `${results.pallet.qty} thùng / pallet, ${results.pallet.nx} x ${results.pallet.ny} x ${results.pallet.nz}, cao thực tế ${formatCm(results.pallet.realH)}. Dim thùng đang dùng: ${formatDims(results.cartonLoad)}.`;
     refs.palletLayerSpec.textContent = `1 layer pallet: ${results.pallet.layerQty} thùng, độ phủ ${formatPercent(results.pallet.layerCoverage)}.`;
-    refs.containerQuickSpec.textContent = `${results.container.qty} pallet / container, ${results.container.nx} x ${results.container.ny} x ${results.container.nz}, lọt lòng ${formatDims(results.container)}.`;
+    refs.containerQuickSpec.textContent = `${results.container.qty} thùng / container, ${results.container.nx} x ${results.container.ny} x ${results.container.nz}, lọt lòng ${formatDims(results.container)}. Preset: ${groupLabel}. CBM hàng ${formatCbm(loadedCbm)} / sức chứa ${formatCbm(capacityCbm)} (còn trống ${formatCbm(remainingCbm)}).`;
 
     refs.dashEff.textContent = integerFormatter.format(results.pallet.layerQty);
     refs.dashPalletCoverage.textContent = formatPercent(results.pallet.layerCoverage);
@@ -453,14 +546,19 @@ function renderMetrics(results) {
 }
 
 function renderBreakdowns(results) {
+    const loadedCbm = (results.container.qty * results.metrics.cartonLoadVolume) / 1000000;
+    const capacityCbm = results.metrics.containerVolume / 1000000;
+    const remainingCbm = Math.max(0, capacityCbm - loadedCbm);
+    const groupLabel = CONTAINER_GROUP_PRESETS[results.form.containerGroup]?.label || "Nhóm mặc định";
+
     refs.cartonBreakdownTitle.textContent = `${results.carton.qty} hộp / thùng`;
     refs.cartonBreakdownBody.textContent = `Carton đề xuất ${formatDims(results.carton)}. Bố trí ${results.carton.nx} x ${results.carton.ny} x ${results.carton.nz} theo chiều đặt ${formatDims(results.carton.orientation)}.`;
 
     refs.palletBreakdownTitle.textContent = `${results.pallet.qty} thùng / pallet`;
     refs.palletBreakdownBody.textContent = `Pallet ${results.pallet.nx} x ${results.pallet.ny} x ${results.pallet.nz} với chiều cao thực tế ${formatCm(results.pallet.realH)} trên mặt chuẩn ${numberFormatter.format(results.pallet.l)} x ${numberFormatter.format(results.pallet.w)} cm. Mỗi layer chứa ${results.pallet.layerQty} thùng, phủ ${formatPercent(results.pallet.layerCoverage)} mặt pallet.`;
 
-    refs.containerBreakdownTitle.textContent = `${results.container.qty} pallet / cont`;
-    refs.containerBreakdownBody.textContent = `Container nhận được ${results.container.nx} x ${results.container.ny} x ${results.container.nz} pallet. Tổng cộng ${integerFormatter.format(results.metrics.totalUnits)} đơn vị sản phẩm trong một chuyến.`;
+    refs.containerBreakdownTitle.textContent = `${results.container.qty} thùng / cont`;
+    refs.containerBreakdownBody.textContent = `Container floor loading nhận ${results.container.nx} x ${results.container.ny} x ${results.container.nz} thùng. CBM hàng: ${formatCbm(loadedCbm)} / ${formatCbm(capacityCbm)}. Còn trống ${formatCbm(remainingCbm)}. Tổng cộng ${integerFormatter.format(results.metrics.totalUnits)} đơn vị sản phẩm trong một chuyến.`;
 }
 
 function renderRecommendations(results) {
@@ -479,11 +577,11 @@ function renderRecommendations(results) {
     }
 
     if (results.container.qty === 0) {
-        items.push("Cấu hình hiện tại không thể đặt pallet vào container. Hãy giảm chiều cao pallet hoặc chọn loại container lớn hơn.");
+        items.push("Cấu hình hiện tại không thể xếp thùng vào container. Hãy điều chỉnh kích thước thùng hoặc chọn loại container lớn hơn.");
     } else if (results.efficiencies.total < 55) {
-        items.push("Hiệu suất tổng vẫn còn dư địa lớn. Tác động mạnh nhất lúc này thường nằm ở việc tối ưu carton trước, vì hiệu ứng sẽ nhân lên ở pallet và container.");
+        items.push("Hiệu suất tổng vẫn còn dư địa lớn. Tác động mạnh nhất lúc này thường nằm ở việc tối ưu carton trước, vì hiệu ứng sẽ nhân lên ở floor loading container.");
     } else {
-        items.push("Hiệu suất tổng đã ở mức tốt cho một mô hình xếp hình học cơ bản. Bước tiếp theo nếu cần là bổ sung thêm ràng buộc tải trọng hoặc chừa khe thao tác thực tế.");
+        items.push("Hiệu suất tổng đã ở mức tốt cho floor loading. Bước tiếp theo nếu cần là bổ sung thêm ràng buộc tải trọng hoặc chừa khe thao tác thực tế.");
     }
 
     items.push(`Tổng thể tích sản phẩm thuần là ${numberFormatter.format((results.metrics.totalUnits * results.metrics.unitVolume) / 1000000)} m3 trên mỗi container, so với dung tích tham chiếu ${numberFormatter.format(results.metrics.containerVolume / 1000000)} m3.`);
@@ -511,7 +609,7 @@ function renderTable(results) {
             label: "Container",
             dims: formatDims(results.container),
             layout: `${results.container.nx} x ${results.container.ny} x ${results.container.nz}`,
-            capacity: `${results.container.qty} pallet`,
+            capacity: `${results.container.qty} thùng`,
             efficiency: formatPercent(results.efficiencies.total)
         }
     ];
@@ -526,336 +624,239 @@ function renderTable(results) {
         </tr>
     `).join("");
 }
-function hexToRgb(hex) {
-    const normalized = hex.replace("#", "");
-    const value = normalized.length === 3
-        ? normalized.split("").map((char) => char + char).join("")
-        : normalized;
-    return {
-        r: parseInt(value.slice(0, 2), 16),
-        g: parseInt(value.slice(2, 4), 16),
-        b: parseInt(value.slice(4, 6), 16)
-    };
+function resizeCanvas() {
+    if (!state.three.renderer || !state.three.camera) {
+        return;
+    }
+
+    const rect = refs.visualStage.getBoundingClientRect();
+    const width = Math.max(320, Math.floor(rect.width));
+    const height = Math.max(260, Math.floor(rect.height));
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+
+    state.three.renderer.setPixelRatio(pixelRatio);
+    state.three.renderer.setSize(width, height, false);
+    state.three.camera.aspect = width / height;
+    state.three.camera.updateProjectionMatrix();
 }
 
-function shade(hex, amount) {
-    const rgb = hexToRgb(hex);
-    const next = {
-        r: clamp(Math.round(amount >= 0 ? rgb.r + (255 - rgb.r) * amount : rgb.r * (1 + amount)), 0, 255),
-        g: clamp(Math.round(amount >= 0 ? rgb.g + (255 - rgb.g) * amount : rgb.g * (1 + amount)), 0, 255),
-        b: clamp(Math.round(amount >= 0 ? rgb.b + (255 - rgb.b) * amount : rgb.b * (1 + amount)), 0, 255)
-    };
-    return `rgb(${next.r}, ${next.g}, ${next.b})`;
+function disposeMaterial(material) {
+    if (!material) {
+        return;
+    }
+    if (Array.isArray(material)) {
+        material.forEach(disposeMaterial);
+        return;
+    }
+    material.dispose();
 }
 
-function multiplyColor(hex, factor) {
-    const rgb = hexToRgb(hex);
-    return `rgb(${clamp(Math.round(rgb.r * factor), 0, 255)}, ${clamp(Math.round(rgb.g * factor), 0, 255)}, ${clamp(Math.round(rgb.b * factor), 0, 255)})`;
-}
-
-function rotatePoint(point, yaw, pitch) {
-    const cosYaw = Math.cos(yaw);
-    const sinYaw = Math.sin(yaw);
-    const cosPitch = Math.cos(pitch);
-    const sinPitch = Math.sin(pitch);
-
-    const xzX = point.x * cosYaw - point.z * sinYaw;
-    const xzZ = point.x * sinYaw + point.z * cosYaw;
-    const yzY = point.y * cosPitch - xzZ * sinPitch;
-    const yzZ = point.y * sinPitch + xzZ * cosPitch;
-
-    return { x: xzX, y: yzY, z: yzZ };
-}
-
-function makeBox(x, y, z, w, h, d, color, alpha = 1, stroke = "rgba(15, 23, 42, 0.16)") {
-    const vertices = [
-        { x, y, z },
-        { x: x + w, y, z },
-        { x: x + w, y: y + h, z },
-        { x, y: y + h, z },
-        { x, y, z: z + d },
-        { x: x + w, y, z: z + d },
-        { x: x + w, y: y + h, z: z + d },
-        { x, y: y + h, z: z + d }
-    ];
-
-    const faceColors = {
-        top: shade(color, 0.24),
-        left: shade(color, 0.12),
-        right: shade(color, -0.06),
-        front: shade(color, 0.06),
-        back: shade(color, -0.14),
-        bottom: shade(color, -0.2)
-    };
-
-    return {
-        vertices,
-        faces: [
-            { indices: [3, 2, 6, 7], fill: faceColors.top, alpha, stroke },
-            { indices: [0, 3, 7, 4], fill: faceColors.left, alpha, stroke },
-            { indices: [1, 2, 6, 5], fill: faceColors.right, alpha, stroke },
-            { indices: [0, 1, 2, 3], fill: faceColors.front, alpha, stroke },
-            { indices: [4, 5, 6, 7], fill: faceColors.back, alpha, stroke },
-            { indices: [0, 1, 5, 4], fill: faceColors.bottom, alpha, stroke }
-        ]
-    };
-}
-
-function drawPolygon(ctx, points, fill, stroke, alpha = 1) {
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.beginPath();
-    points.forEach((point, index) => {
-        if (index === 0) {
-            ctx.moveTo(point.x, point.y);
-        } else {
-            ctx.lineTo(point.x, point.y);
+function disposeObject(object) {
+    object.traverse((node) => {
+        if (node.geometry) {
+            node.geometry.dispose();
+        }
+        if (node.material) {
+            disposeMaterial(node.material);
         }
     });
-    ctx.closePath();
-    ctx.fillStyle = fill;
-    ctx.fill();
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.restore();
 }
 
-function drawWireframe(ctx, projected, scale, offsetX, offsetY, stroke) {
-    const edges = [
-        [0, 1], [1, 2], [2, 3], [3, 0],
-        [4, 5], [5, 6], [6, 7], [7, 4],
-        [0, 4], [1, 5], [2, 6], [3, 7]
-    ];
+function clearStageGroup() {
+    if (!state.three.stageGroup || !state.three.scene) {
+        return;
+    }
+    state.three.scene.remove(state.three.stageGroup);
+    disposeObject(state.three.stageGroup);
+    state.three.stageGroup = null;
+}
 
-    ctx.save();
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = Math.max(1, 1.1 * window.devicePixelRatio);
-    edges.forEach(([from, to]) => {
-        const start = projected[from];
-        const end = projected[to];
-        ctx.beginPath();
-        ctx.moveTo(offsetX + start.x * scale, offsetY - start.y * scale);
-        ctx.lineTo(offsetX + end.x * scale, offsetY - end.y * scale);
-        ctx.stroke();
+function initThreeRenderer() {
+    if (state.three.renderer) {
+        return;
+    }
+
+    const renderer = new THREE.WebGLRenderer({
+        canvas: refs.sceneCanvas,
+        antialias: true,
+        alpha: true,
+        powerPreference: "high-performance"
     });
-    ctx.restore();
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
+    renderer.setClearColor(0x000000, 0);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 10000);
+    camera.position.set(260, 220, 260);
+
+    const controls = new OrbitControls(camera, refs.sceneCanvas);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.screenSpacePanning = false;
+    controls.target.set(0, 0, 0);
+    controls.maxPolarAngle = Math.PI * 0.495;
+    controls.minPolarAngle = 0.1;
+    controls.enablePan = true;
+    controls.zoomSpeed = 0.9;
+    controls.rotateSpeed = 0.75;
+    controls.update();
+
+    const hemiLight = new THREE.HemisphereLight(0xf1f5ff, 0xc2aa85, 1.08);
+    scene.add(hemiLight);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 0.84);
+    keyLight.position.set(220, 310, 180);
+    scene.add(keyLight);
+
+    const rimLight = new THREE.DirectionalLight(0xbfd2ff, 0.32);
+    rimLight.position.set(-220, 110, -240);
+    scene.add(rimLight);
+
+    const grid = new THREE.GridHelper(1400, 28, 0x9aa5c8, 0xcdd5ea);
+    grid.position.y = 0;
+    grid.material.opacity = 0.23;
+    grid.material.transparent = true;
+    scene.add(grid);
+
+    renderer.setAnimationLoop(() => {
+        controls.update();
+        renderer.render(scene, camera);
+    });
+
+    state.three.renderer = renderer;
+    state.three.scene = scene;
+    state.three.camera = camera;
+    state.three.controls = controls;
+
+    if (window.ResizeObserver) {
+        state.three.resizeObserver = new ResizeObserver(() => resizeCanvas());
+        state.three.resizeObserver.observe(refs.visualStage);
+    }
+
+    resizeCanvas();
 }
 
-function stageToObjects(stage) {
+function fitCameraToObject(object, instant = false) {
+    if (!state.three.camera || !state.three.controls || !object) {
+        return;
+    }
+
+    const bbox = new THREE.Box3().setFromObject(object);
+    const size = bbox.getSize(new THREE.Vector3());
+    const center = bbox.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z, 1);
+    const fov = THREE.MathUtils.degToRad(state.three.camera.fov);
+    const distance = (maxDim / (2 * Math.tan(fov / 2))) * 1.4;
+
+    state.three.camera.near = Math.max(0.1, maxDim / 250);
+    state.three.camera.far = Math.max(2000, maxDim * 80);
+    state.three.camera.updateProjectionMatrix();
+
+    const offset = new THREE.Vector3(distance * 0.9, distance * 0.78, distance * 0.95);
+    const newPos = center.clone().add(offset);
+
+    state.three.controls.target.copy(center);
+    state.three.controls.minDistance = Math.max(maxDim * 0.22, 12);
+    state.three.controls.maxDistance = Math.max(maxDim * 7, 420);
+
+    if (instant) {
+        state.three.camera.position.copy(newPos);
+    } else {
+        state.three.camera.position.lerp(newPos, 0.9);
+    }
+    state.three.controls.update();
+}
+
+function buildThreeStage(stage) {
+    clearStageGroup();
+    const group = new THREE.Group();
     const bounds = stage.bounds;
-    const offset = {
-        x: -bounds.l / 2,
-        y: -bounds.h / 2,
-        z: -bounds.w / 2
-    };
 
-    const objects = [
-        {
-            type: "wireframe",
-            color: "rgba(41, 65, 75, 0.34)",
-            alpha: 1,
-            ...makeBox(offset.x, offset.y, offset.z, bounds.l, bounds.h, bounds.w, "#c7d0d7", 0.08, "rgba(41, 65, 75, 0.06)")
-        }
-    ];
+    const containerMaterial = new THREE.MeshStandardMaterial({
+        color: 0xd6dbe8,
+        transparent: true,
+        opacity: 0.08,
+        roughness: 0.95,
+        metalness: 0.02
+    });
+    const containerMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(bounds.l, bounds.h, bounds.w),
+        containerMaterial
+    );
+    containerMesh.position.set(0, bounds.h / 2, 0);
+    group.add(containerMesh);
+
+    const edgeLines = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(bounds.l, bounds.h, bounds.w)),
+        new THREE.LineBasicMaterial({ color: 0x687593, transparent: true, opacity: 0.4 })
+    );
+    edgeLines.position.copy(containerMesh.position);
+    group.add(edgeLines);
 
     if (stage.layout.base > 0) {
-        objects.push({
-            type: "solid",
-            color: "#8c6239",
-            alpha: 0.96,
-            ...makeBox(offset.x, offset.y, offset.z, bounds.l, stage.layout.base, bounds.w, "#8c6239", 0.96, "rgba(62, 39, 12, 0.22)")
-        });
+        const baseMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(bounds.l, stage.layout.base, bounds.w),
+            new THREE.MeshStandardMaterial({ color: 0x7a5a3d, roughness: 0.75, metalness: 0.05 })
+        );
+        baseMesh.position.set(0, stage.layout.base / 2, 0);
+        group.add(baseMesh);
     }
 
     const total = stage.layout.nx * stage.layout.ny * stage.layout.nz;
-    const visibleCount = Math.min(total, 260);
-    let count = 0;
+    const visibleCount = Math.min(total, 1600);
+    if (visibleCount > 0) {
+        // Leave a subtle gap between items so users can see each box/carton clearly.
+        const gapFactorX = 0.96;
+        const gapFactorY = 0.985;
+        const gapFactorZ = 0.96;
+        const cellGeometry = new THREE.BoxGeometry(
+            stage.item.l * gapFactorX,
+            stage.item.h * gapFactorY,
+            stage.item.w * gapFactorZ
+        );
+        const cellMaterial = new THREE.MeshStandardMaterial({
+            color: stage.color,
+            roughness: 0.5,
+            metalness: 0.04
+        });
+        const instanced = new THREE.InstancedMesh(cellGeometry, cellMaterial, visibleCount);
+        const dummy = new THREE.Object3D();
+        let index = 0;
 
-    for (let layer = 0; layer < stage.layout.nz; layer += 1) {
-        for (let row = 0; row < stage.layout.ny; row += 1) {
-            for (let col = 0; col < stage.layout.nx; col += 1) {
-                if (count >= visibleCount) {
-                    break;
+        for (let layer = 0; layer < stage.layout.nz && index < visibleCount; layer += 1) {
+            for (let row = 0; row < stage.layout.ny && index < visibleCount; row += 1) {
+                for (let col = 0; col < stage.layout.nx && index < visibleCount; col += 1) {
+                    dummy.position.set(
+                        -bounds.l / 2 + stage.item.l / 2 + col * stage.item.l,
+                        stage.layout.base + stage.item.h / 2 + layer * stage.item.h,
+                        -bounds.w / 2 + stage.item.w / 2 + row * stage.item.w
+                    );
+                    dummy.updateMatrix();
+                    instanced.setMatrixAt(index, dummy.matrix);
+                    index += 1;
                 }
-
-                objects.push({
-                    type: "solid",
-                    color: stage.color,
-                    alpha: 0.98,
-                    ...makeBox(
-                        offset.x + col * stage.item.l,
-                        offset.y + stage.layout.base + layer * stage.item.h,
-                        offset.z + row * stage.item.w,
-                        stage.item.l,
-                        stage.item.h,
-                        stage.item.w,
-                        stage.color,
-                        0.98,
-                        "rgba(12, 18, 24, 0.18)"
-                    )
-                });
-                count += 1;
             }
         }
+        instanced.instanceMatrix.needsUpdate = true;
+        group.add(instanced);
     }
 
-    return { objects, visibleCount, total };
-}
-
-function projectScene(objects, width, height) {
-    const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
-    const transformedObjects = [];
-    let maxAbsZ = 1;
-
-    objects.forEach((object) => {
-        const transformed = object.vertices.map((vertex) => rotatePoint(vertex, state.viewer.yaw, state.viewer.pitch));
-        transformed.forEach((vertex) => {
-            maxAbsZ = Math.max(maxAbsZ, Math.abs(vertex.z));
-        });
-        transformedObjects.push({ object, transformed });
-    });
-
-    const cameraDistance = maxAbsZ * (4.2 / state.viewer.zoom) + 120;
-
-    transformedObjects.forEach((entry) => {
-        entry.projected = entry.transformed.map((vertex) => {
-            const depth = cameraDistance + vertex.z;
-            const perspective = cameraDistance / Math.max(1, depth);
-            const point = {
-                x: vertex.x * perspective,
-                y: vertex.y * perspective,
-                z: depth
-            };
-
-            bounds.minX = Math.min(bounds.minX, point.x);
-            bounds.maxX = Math.max(bounds.maxX, point.x);
-            bounds.minY = Math.min(bounds.minY, point.y);
-            bounds.maxY = Math.max(bounds.maxY, point.y);
-            return point;
-        });
-    });
-
-    const spanX = Math.max(1, bounds.maxX - bounds.minX);
-    const spanY = Math.max(1, bounds.maxY - bounds.minY);
-    const scale = Math.min((width * 0.56) / spanX, (height * 0.6) / spanY);
-    const offsetX = width * 0.5 - ((bounds.minX + bounds.maxX) * scale) / 2;
-    const offsetY = height * 0.6 + ((bounds.minY + bounds.maxY) * scale) / 2;
-
-    return { transformedObjects, scale, offsetX, offsetY };
-}
-
-function buildFaceQueue(projectedScene) {
-    const queue = [];
-
-    projectedScene.transformedObjects.forEach(({ object, transformed, projected }) => {
-        if (object.type === "wireframe") {
-            queue.push({ type: "wireframe", projected, color: object.color });
-            return;
-        }
-
-        object.faces.forEach((face) => {
-            const points = face.indices.map((index) => projected[index]);
-            const depth = face.indices.reduce((sum, index) => sum + transformed[index].z, 0) / face.indices.length;
-            queue.push({
-                type: "face",
-                points,
-                fill: face.fill,
-                stroke: face.stroke,
-                alpha: face.alpha,
-                depth
-            });
-        });
-    });
-
-    queue.sort((a, b) => {
-        if (a.type === "wireframe" && b.type !== "wireframe") {
-            return 1;
-        }
-        if (a.type !== "wireframe" && b.type === "wireframe") {
-            return -1;
-        }
-        return a.depth - b.depth;
-    });
-
-    return queue;
-}
-
-function resizeCanvas() {
-    const rect = refs.sceneCanvas.getBoundingClientRect();
-    const width = Math.max(600, Math.floor(rect.width * window.devicePixelRatio));
-    const height = Math.max(420, Math.floor(rect.height * window.devicePixelRatio));
-
-    if (refs.sceneCanvas.width !== width || refs.sceneCanvas.height !== height) {
-        refs.sceneCanvas.width = width;
-        refs.sceneCanvas.height = height;
-    }
+    state.three.scene.add(group);
+    state.three.stageGroup = group;
+    return { visibleCount, total };
 }
 
 function drawScene(stage) {
+    initThreeRenderer();
     resizeCanvas();
-    const ctx = refs.sceneCanvas.getContext("2d");
-    const canvas = refs.sceneCanvas;
-    const width = canvas.width;
-    const height = canvas.height;
+    const stat = buildThreeStage(stage);
+    fitCameraToObject(state.three.stageGroup, true);
 
-    ctx.clearRect(0, 0, width, height);
-
-    const gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, "#f9f4eb");
-    gradient.addColorStop(1, "#ece2d0");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.strokeStyle = "rgba(68, 56, 37, 0.08)";
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= 10; i += 1) {
-        const y = (height * i) / 10;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
+    if (stat.visibleCount < stat.total) {
+        refs.layoutNote.textContent = integerFormatter.format(stage.quantity) + " " + stage.unit + ". " + stage.note + " Đang rút gọn hiển thị còn " + stat.visibleCount + "/" + stat.total + " khối để giữ hiệu năng.";
     }
-
-    const { objects, visibleCount, total } = stageToObjects(stage);
-    const projectedScene = projectScene(objects, width, height);
-    const queue = buildFaceQueue(projectedScene);
-
-    queue.forEach((entry) => {
-        if (entry.type === "wireframe") {
-            drawWireframe(ctx, entry.projected, projectedScene.scale, projectedScene.offsetX, projectedScene.offsetY, entry.color);
-            return;
-        }
-
-        const points = entry.points.map((point) => ({
-            x: projectedScene.offsetX + point.x * projectedScene.scale,
-            y: projectedScene.offsetY - point.y * projectedScene.scale
-        }));
-        drawPolygon(ctx, points, entry.fill, entry.stroke, entry.alpha);
-    });
-
-    ctx.save();
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
-    ctx.lineWidth = 2 * window.devicePixelRatio;
-    ctx.beginPath();
-    ctx.moveTo(width * 0.08, height * 0.84);
-    ctx.lineTo(width * 0.92, height * 0.84);
-    ctx.stroke();
-    ctx.restore();
-
-    ctx.save();
-    ctx.fillStyle = "rgba(30, 41, 51, 0.72)";
-    ctx.font = `${Math.round(width / 40)}px "Segoe UI Variable Text", "Segoe UI", sans-serif`;
-    ctx.fillText(stage.title, width * 0.05, height * 0.1);
-    ctx.font = `${Math.round(width / 70)}px "Segoe UI Variable Text", "Segoe UI", sans-serif`;
-    ctx.fillStyle = "rgba(96, 112, 126, 0.92)";
-    ctx.fillText(stage.note, width * 0.05, height * 0.15);
-
-    if (visibleCount < total) {
-        ctx.fillStyle = "rgba(96, 112, 126, 0.92)";
-        ctx.fillText(`Đang rút gọn hình vẽ còn ${visibleCount} khối để giữ hiệu năng canvas.`, width * 0.05, height * 0.91);
-    }
-    ctx.restore();
 }
 
 function renderStage(results) {
@@ -864,7 +865,7 @@ function renderStage(results) {
     refs.viewBadge.textContent = stage.badge;
     refs.visualQty.textContent = integerFormatter.format(stage.quantity);
     refs.visualUnit.textContent = stage.unit;
-    refs.layoutNote.textContent = stage.note;
+    refs.layoutNote.textContent = integerFormatter.format(stage.quantity) + " " + stage.unit + ". " + stage.note;
 
     const progress = formatPercent(stage.efficiency);
     refs.effRing.style.setProperty("--progress", `${clamp(stage.efficiency, 0, 100)}%`);
@@ -881,7 +882,8 @@ function buildReport(results) {
         `Mục tiêu mỗi carton: ${results.form.box.target} hộp`,
         `Carton đề xuất: ${formatDims(results.carton)} | ${results.carton.qty} hộp | hiệu suất ${formatPercent(results.efficiencies.carton)}`,
         `Pallet: ${numberFormatter.format(results.pallet.l)} x ${numberFormatter.format(results.pallet.w)} x ${numberFormatter.format(results.pallet.realH)} cm | ${results.pallet.qty} thùng | hiệu suất ${formatPercent(results.efficiencies.pallet)}`,
-        `Container: ${formatDims(results.container)} | ${results.container.qty} pallet`,
+        `Container floor loading: ${formatDims(results.container)} | ${results.container.qty} thùng | CBM hàng ${formatCbm((results.container.qty * results.metrics.cartonLoadVolume) / 1000000)} / ${formatCbm(results.metrics.containerVolume / 1000000)}`,
+        `CBM còn trống: ${formatCbm((results.metrics.containerVolume / 1000000) - ((results.container.qty * results.metrics.cartonLoadVolume) / 1000000))}`,
         `Tổng đơn vị/container: ${integerFormatter.format(results.metrics.totalUnits)}`,
         `Hiệu suất tổng: ${formatPercent(results.efficiencies.total)} | Lãng phí: ${formatPercent(results.metrics.waste)}`
     ].join("\n");
@@ -921,38 +923,6 @@ function update() {
     render();
 }
 
-function startDrag(event) {
-    state.viewer.dragging = true;
-    state.viewer.pointerId = event.pointerId;
-    state.viewer.lastX = event.clientX;
-    state.viewer.lastY = event.clientY;
-    refs.visualStage.classList.add("dragging");
-    refs.sceneCanvas.setPointerCapture(event.pointerId);
-}
-
-function dragScene(event) {
-    if (!state.viewer.dragging || state.viewer.pointerId !== event.pointerId) {
-        return;
-    }
-
-    const deltaX = event.clientX - state.viewer.lastX;
-    const deltaY = event.clientY - state.viewer.lastY;
-    state.viewer.lastX = event.clientX;
-    state.viewer.lastY = event.clientY;
-    state.viewer.yaw += deltaX * 0.012;
-    state.viewer.pitch = clamp(state.viewer.pitch - deltaY * 0.009, -1.2, 1.2);
-    render();
-}
-
-function endDrag(event) {
-    if (state.viewer.pointerId !== null && refs.sceneCanvas.hasPointerCapture(state.viewer.pointerId)) {
-        refs.sceneCanvas.releasePointerCapture(state.viewer.pointerId);
-    }
-    state.viewer.dragging = false;
-    state.viewer.pointerId = null;
-    refs.visualStage.classList.remove("dragging");
-}
-
 function registerEvents() {
     document.querySelectorAll(".preset-btn").forEach((button) => {
         button.addEventListener("click", () => applyScenario(button.dataset.preset));
@@ -968,16 +938,37 @@ function registerEvents() {
     });
 
     refs.containerType.addEventListener("change", (event) => {
-        applyContainerPreset(event.target.value);
+        applyContainerPreset(event.target.value, refs.containerGroup ? refs.containerGroup.value : "g1");
         update();
+    });
+    if (refs.containerGroup) {
+        refs.containerGroup.addEventListener("change", (event) => {
+            applyContainerPreset(refs.containerType.value, event.target.value);
+            update();
+        });
+    }
+
+    [refs.boxL, refs.boxW, refs.boxH, refs.targetQty].forEach((input) => {
+        input.addEventListener("input", () => {
+            state.cartonManual = false;
+            state.activePreset = "";
+            document.querySelectorAll(".preset-btn").forEach((button) => button.classList.remove("active"));
+            update();
+        });
     });
 
     [
-        refs.boxL, refs.boxW, refs.boxH, refs.targetQty,
+        refs.cartonL, refs.cartonW, refs.cartonH,
         refs.palletL, refs.palletW, refs.palletMaxH, refs.palletBase,
         refs.containerL, refs.containerW, refs.containerH
     ].forEach((input) => {
+        if (!input) {
+            return;
+        }
         input.addEventListener("input", () => {
+            if (input === refs.cartonL || input === refs.cartonW || input === refs.cartonH) {
+                state.cartonManual = true;
+            }
             state.activePreset = "";
             document.querySelectorAll(".preset-btn").forEach((button) => button.classList.remove("active"));
             update();
@@ -985,28 +976,15 @@ function registerEvents() {
     });
 
     refs.recalculateBtn.addEventListener("click", update);
-    refs.copyReportBtn.addEventListener("click", copyReport);
-    refs.sceneCanvas.addEventListener("pointerdown", startDrag);
-    refs.sceneCanvas.addEventListener("pointermove", dragScene);
-    refs.sceneCanvas.addEventListener("pointerup", endDrag);
-    refs.sceneCanvas.addEventListener("pointercancel", endDrag);
-    refs.sceneCanvas.addEventListener("pointerleave", (event) => {
-        if (state.viewer.dragging) {
-            endDrag(event);
-        }
-    });
-    refs.sceneCanvas.addEventListener("wheel", (event) => {
-        event.preventDefault();
-        const zoomDelta = event.deltaY > 0 ? -0.08 : 0.08;
-        state.viewer.zoom = clamp(state.viewer.zoom + zoomDelta, 0.55, 2.4);
-        render();
-    }, { passive: false });
+    refs.copyReportBtn.addEventListener("click", copyReport);
     refs.sceneCanvas.addEventListener("dblclick", () => {
         resetViewer();
-        render();
+        if (state.three.renderer && state.three.scene && state.three.camera) {
+            state.three.renderer.render(state.three.scene, state.three.camera);
+        }
     });
 
-    window.addEventListener("resize", render);
+    window.addEventListener("resize", () => resizeCanvas());
 }
 
 registerEvents();
