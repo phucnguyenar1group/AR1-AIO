@@ -1818,6 +1818,281 @@ async function copyReport() {
     window.setTimeout(() => { refs.copyReportBtn.textContent = originalText; }, 1600);
 }
 
+function resizeCanvas() {
+    if (!state.three.renderer || !state.three.camera) return;
+
+    const rect = refs.visualStage.getBoundingClientRect();
+    const width = Math.max(320, Math.floor(rect.width));
+    const height = Math.max(260, Math.floor(rect.height));
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+
+    state.three.renderer.setPixelRatio(pixelRatio);
+    state.three.renderer.setSize(width, height, false);
+    state.three.camera.aspect = width / height;
+    state.three.camera.updateProjectionMatrix();
+}
+
+function disposeMaterial(material) {
+    if (!material) return;
+    if (Array.isArray(material)) {
+        material.forEach(disposeMaterial);
+        return;
+    }
+    material.dispose();
+}
+
+function disposeObject(object) {
+    object.traverse((node) => {
+        if (node.geometry) node.geometry.dispose();
+        if (node.material) disposeMaterial(node.material);
+    });
+}
+
+function clearStageGroup() {
+    if (!state.three.stageGroup || !state.three.scene) return;
+    state.three.scene.remove(state.three.stageGroup);
+    disposeObject(state.three.stageGroup);
+    state.three.stageGroup = null;
+}
+
+function initThreeRenderer() {
+    if (state.three.renderer) return;
+
+    const renderer = new THREE.WebGLRenderer({
+        canvas: refs.sceneCanvas,
+        antialias: true,
+        alpha: true,
+        powerPreference: "high-performance"
+    });
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
+    renderer.setClearColor(0x000000, 0);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 10000);
+    camera.position.set(260, 220, 260);
+
+    const controls = new OrbitControls(camera, refs.sceneCanvas);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.screenSpacePanning = false;
+    controls.target.set(0, 0, 0);
+    controls.maxPolarAngle = Math.PI * 0.495;
+    controls.minPolarAngle = 0.1;
+    controls.enablePan = true;
+    controls.zoomSpeed = 0.9;
+    controls.rotateSpeed = 0.75;
+    controls.update();
+
+    const hemiLight = new THREE.HemisphereLight(0xf1f5ff, 0xc2aa85, 1.08);
+    scene.add(hemiLight);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 0.84);
+    keyLight.position.set(220, 310, 180);
+    scene.add(keyLight);
+
+    const rimLight = new THREE.DirectionalLight(0xbfd2ff, 0.32);
+    rimLight.position.set(-220, 110, -240);
+    scene.add(rimLight);
+    
+    const grid = new THREE.GridHelper(1400, 28, 0x9aa5c8, 0xcdd5ea);
+    grid.position.y = 0;
+    grid.material.opacity = 0.23;
+    grid.material.transparent = true;
+    scene.add(grid);
+    
+    renderer.setAnimationLoop(() => {
+        controls.update();
+        renderer.render(scene, camera);
+    });
+    
+    state.three.renderer = renderer;
+    state.three.scene = scene;
+    state.three.camera = camera;
+    state.three.controls = controls;
+    
+    if (window.ResizeObserver) {
+        state.three.resizeObserver = new ResizeObserver(() => resizeCanvas());
+        state.three.resizeObserver.observe(refs.visualStage);
+    }
+
+    resizeCanvas();
+}
+
+function fitCameraToObject(object, instant = false) {
+    if (!state.three.camera || !state.three.controls || !object) return;
+
+    const bbox = new THREE.Box3().setFromObject(object);
+    const size = bbox.getSize(new THREE.Vector3());
+    const center = bbox.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z, 1);
+    const fov = THREE.MathUtils.degToRad(state.three.camera.fov);
+    const distance = (maxDim / (2 * Math.tan(fov / 2))) * 1.4;
+
+    state.three.camera.near = Math.max(0.1, maxDim / 250);
+    state.three.camera.far = Math.max(2000, maxDim * 80);
+    state.three.camera.updateProjectionMatrix();
+
+    const offset = new THREE.Vector3(distance * 0.9, distance * 0.78, distance * 0.95);
+    const newPos = center.clone().add(offset);
+
+    state.three.controls.target.copy(center);
+    state.three.controls.minDistance = Math.max(maxDim * 0.22, 12);
+    state.three.controls.maxDistance = Math.max(maxDim * 7, 420);
+    
+    if (instant) {
+        state.three.camera.position.copy(newPos);
+    } else {
+        state.three.camera.position.lerp(newPos, 0.9);
+    }
+    state.three.controls.update();
+}
+
+function buildThreeStage(stage) {
+    clearStageGroup();
+    const group = new THREE.Group();
+    const bounds = stage.bounds;
+    
+    const containerMaterial = new THREE.MeshStandardMaterial({
+        color: 0xd6dbe8,
+        transparent: true,
+        opacity: 0.08,
+        roughness: 0.95,
+        metalness: 0.02
+    });
+    const containerMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(bounds.l, bounds.h, bounds.w),
+        containerMaterial
+    );
+    containerMesh.position.set(0, bounds.h / 2, 0);
+    group.add(containerMesh);
+
+    const edgeLines = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(bounds.l, bounds.h, bounds.w)),
+        new THREE.LineBasicMaterial({ color: 0x687593, transparent: true, opacity: 0.4 })
+    );
+    edgeLines.position.copy(containerMesh.position);
+    group.add(edgeLines);
+
+    if (stage.layout.base > 0) {
+        const baseMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(bounds.l, stage.layout.base, bounds.w),
+            new THREE.MeshStandardMaterial({ color: 0x7a5a3d, roughness: 0.75, metalness: 0.05 })
+        );
+        baseMesh.position.set(0, stage.layout.base / 2, 0);
+        group.add(baseMesh);
+    }
+
+    const total = stage.layout.nx * stage.layout.ny * stage.layout.nz;
+    const visibleCount = Math.min(total, 1600);
+    
+    if (visibleCount > 0) {
+        const gapFactorX = 0.96;
+        const gapFactorY = 0.985;
+        const gapFactorZ = 0.96;
+        const cellGeometry = new THREE.BoxGeometry(
+            stage.item.l * gapFactorX,
+            stage.item.h * gapFactorY,
+            stage.item.w * gapFactorZ
+        );
+        
+        // Multi-SKU handling if placements exist
+        if (stage.placements && stage.placements.length > 0) {
+            const count = Math.min(stage.placements.length, 3000);
+            
+            // X-ray feature for shell container
+            if (stage.mode === "multi-sku" && !stage.showShell) {
+                containerMesh.visible = false;
+                edgeLines.visible = false;
+            } else if (stage.mode === "multi-sku" && stage.xrayShell) {
+                containerMaterial.opacity = 0.03;
+                edgeLines.material.opacity = 0.15;
+            }
+
+            const multiInstanced = new THREE.InstancedMesh(cellGeometry, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.04 }), count);
+            const dummy = new THREE.Object3D();
+            const color = new THREE.Color();
+            
+            for (let i = 0; i < count; i++) {
+                const p = stage.placements[i];
+                dummy.position.set(p.x, p.y, p.z);
+                
+                // Scale individually if sizes differ
+                dummy.scale.set(
+                    (p.l * gapFactorX) / (stage.item.l * gapFactorX),
+                    (p.h * gapFactorY) / (stage.item.h * gapFactorY),
+                    (p.w * gapFactorZ) / (stage.item.w * gapFactorZ)
+                );
+                
+                dummy.updateMatrix();
+                multiInstanced.setMatrixAt(i, dummy.matrix);
+                multiInstanced.setColorAt(i, color.set(p.color || stage.color));
+            }
+            multiInstanced.instanceMatrix.needsUpdate = true;
+            if (multiInstanced.instanceColor) multiInstanced.instanceColor.needsUpdate = true;
+            group.add(multiInstanced);
+            
+        } else {
+            // Standard single item grid
+            const cellMaterial = new THREE.MeshStandardMaterial({
+                color: stage.color,
+                roughness: 0.5,
+                metalness: 0.04
+            });
+            const instanced = new THREE.InstancedMesh(cellGeometry, cellMaterial, visibleCount);
+            const dummy = new THREE.Object3D();
+            let index = 0;
+            
+            for (let layer = 0; layer < stage.layout.nz && index < visibleCount; layer += 1) {
+                for (let row = 0; row < stage.layout.ny && index < visibleCount; row += 1) {
+                    for (let col = 0; col < stage.layout.nx && index < visibleCount; col += 1) {
+                        dummy.position.set(
+                            -bounds.l / 2 + stage.item.l / 2 + col * stage.item.l,
+                            stage.layout.base + stage.item.h / 2 + layer * stage.item.h,
+                            -bounds.w / 2 + stage.item.w / 2 + row * stage.item.w
+                        );
+                        dummy.updateMatrix();
+                        instanced.setMatrixAt(index, dummy.matrix);
+                        index += 1;
+                    }
+                }
+            }
+            instanced.instanceMatrix.needsUpdate = true;
+            group.add(instanced);
+        }
+    }
+
+    state.three.scene.add(group);
+    state.three.stageGroup = group;
+    return { visibleCount, total };
+}
+
+function drawScene(stage) {
+    initThreeRenderer();
+    resizeCanvas();
+    const stat = buildThreeStage(stage);
+    fitCameraToObject(state.three.stageGroup, true);
+    
+    if (stat.visibleCount < stat.total) {
+        refs.layoutNote.textContent = integerFormatter.format(stage.quantity) + " " + stage.unit + ". " + stage.note + " Đang rút gọn hiển thị còn " + stat.visibleCount + "/" + stat.total + " khối để giữ hiệu năng.";
+    }
+}
+
+function renderStage(results) {
+    const stage = stageConfig(results);
+    refs.stageTitle.textContent = stage.title;
+    refs.viewBadge.textContent = stage.badge;
+    refs.visualQty.textContent = integerFormatter.format(stage.quantity);
+    refs.visualUnit.textContent = stage.unit;
+    refs.layoutNote.textContent = integerFormatter.format(stage.quantity) + " " + stage.unit + ". " + stage.note;
+
+    const progress = formatPercent(stage.efficiency);
+    refs.effRing.style.setProperty("--progress", `${clamp(stage.efficiency, 0, 100)}%`);
+    refs.effRingValue.textContent = progress;
+
+    drawScene(stage);
+}
+
 function render() {
     if (!state.results) return;
     renderMetrics(state.results);
