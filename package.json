@@ -6,6 +6,7 @@
   "scripts": {
     "build:css": "tailwindcss -i ./assets/styles.src.css -o ./assets/styles.css",
     "watch:css": "tailwindcss -i ./assets/styles.src.css -o ./assets/styles.css --watch",
+    "build": "npm run build:css",
     "start": "npm run build:css && node local-server.js",
     "dev": "npm run start"
   },
