@@ -453,23 +453,21 @@
                         <section id="resultsSection" class="panel visualization-panel splitter-results" hidden>
                             <div class="panel-heading compact results-heading">
                                 <div class="results-heading-main">
-                                    <h2 class="text-lg font-extrabold text-slate-800">Kết quả tách</h2>
-                                    <p id="current-file-display"
-                                        class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">File: --
-                                    </p>
+                                    <h2 class="text-lg font-extrabold text-slate-800">Kết quả</h2>
                                 </div>
-                                <div class="action-row">
-                                    <button id="downloadSelectedBtn" class="primary-btn" type="button">Tải xuống file đã
-                                        chọn</button>
-                                    <button id="downloadAllBtn" class="ghost-btn" type="button">Tất cả (ZIP)</button>
+                                <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                                    <button id="downloadSelectedBtn" class="primary-btn !py-2 !px-4 !text-sm"
+                                        type="button">Tải file đã chọn</button>
+                                    <button id="downloadAllBtn" class="ghost-btn !py-2 !px-4 !text-sm" type="button">Tất
+                                        cả (ZIP)</button>
                                 </div>
                             </div>
 
                             <div
-                                class="flex items-center justify-between bg-white px-4 py-3 rounded-2xl shadow-sm border border-slate-100 sticky top-0 z-10 mb-4">
-                                <label class="flex items-center gap-3 cursor-pointer group">
-                                    <input type="checkbox" id="selectAllDocs"
-                                        class="custom-checkbox appearance-none w-6 h-6 border-2 border-slate-200 rounded-lg checked:bg-blue-600 checked:border-blue-600 transition-all cursor-pointer"
+                                class="flex flex-row items-center justify-between bg-white px-4 py-3 rounded-2xl shadow-sm border border-slate-100 sticky top-0 z-10 mb-4">
+                                <label class="flex flex-row items-center gap-3 cursor-pointer group mb-0">
+                                    <input type="checkbox" id="selectAllDocs" onchange="toggleAllDocs(this)"
+                                        class="custom-checkbox appearance-none w-6 h-6 border-2 border-slate-200 rounded-full checked:bg-blue-600 checked:border-blue-600 transition-all cursor-pointer"
                                         checked>
                                     <span
                                         class="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors">Chọn

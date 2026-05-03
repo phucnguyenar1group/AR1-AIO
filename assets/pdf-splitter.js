@@ -906,11 +906,11 @@ function downloadBlob(blob, filename) {
 }
 
 // Thêm hàm này để xử lý nút tải xuống từng file trong giao diện mới
-window.downloadSingleDoc = function(docId) {
-    const doc = getDocById(docId);
-    if (doc) {
-        downloadBlob(doc.blob, doc.fileName);
-    }
+window.downloadSingleDoc = function (docId) {
+  const doc = getDocById(docId);
+  if (doc) {
+    downloadBlob(doc.blob, doc.fileName);
+  }
 }
 
 async function buildZipBlob(docs) {
@@ -946,7 +946,17 @@ function createDocCard(doc) {
   const card = document.createElement("article");
   card.className = "file-item group bg-white rounded-[1.5rem] p-4 shadow-sm border border-slate-100 hover:border-blue-200 transition-all flex items-center gap-4 cursor-pointer relative";
 
-  // Thêm event click vào card để toggle checkbox giống mẫu
+  // Bộ màu động theo loại tài liệu
+  let theme = { ring: 'hover:ring-blue-400', bg: 'bg-blue-50', text: 'text-blue-600' }; // Mặc định (BOL...)
+  if (doc.type === 'INV') theme = { ring: 'hover:ring-amber-400', bg: 'bg-amber-50', text: 'text-amber-600' };
+  else if (doc.type === 'COO') theme = { ring: 'hover:ring-emerald-400', bg: 'bg-emerald-50', text: 'text-emerald-600' };
+  else if (doc.type === 'PKL') theme = { ring: 'hover:ring-purple-400', bg: 'bg-purple-50', text: 'text-purple-600' };
+  else if (doc.type === 'HC') theme = { ring: 'hover:ring-rose-400', bg: 'bg-rose-50', text: 'text-rose-600' };
+  else if (doc.type === 'PC') theme = { ring: 'hover:ring-teal-400', bg: 'bg-teal-50', text: 'text-teal-600' };
+  else if (doc.type === 'COA') theme = { ring: 'hover:ring-cyan-400', bg: 'bg-cyan-50', text: 'text-cyan-600' };
+  else if (doc.type === 'CAD') theme = { ring: 'hover:ring-orange-400', bg: 'bg-orange-50', text: 'text-orange-600' };
+
+  // Thêm event click vào card để toggle checkbox
   card.onclick = () => {
     const cb = card.querySelector('.doc-select');
     cb.checked = !cb.checked;
@@ -954,14 +964,14 @@ function createDocCard(doc) {
   };
 
   card.innerHTML = `
-        <input type="checkbox" class="doc-select custom-checkbox appearance-none w-6 h-6 border-2 border-slate-200 rounded-lg checked:bg-blue-600 checked:border-blue-600 transition-all flex-shrink-0" 
+        <input type="checkbox" class="doc-select custom-checkbox appearance-none w-6 h-6 border-2 border-slate-200 rounded-full checked:bg-blue-600 checked:border-blue-600 transition-all flex-shrink-0" 
             data-doc-id="${doc.id}" checked onclick="event.stopPropagation(); updateResultsUI();">
         
-        <div class="w-16 h-20 bg-white rounded-md border border-slate-200 flex-shrink-0 overflow-hidden shadow-sm relative hover:ring-2 hover:ring-blue-400 transition-all"
+        <div class="w-16 h-20 bg-white rounded-md border border-slate-200 flex-shrink-0 overflow-hidden shadow-sm relative ${theme.ring} transition-all"
              onclick="event.stopPropagation(); openPreview('${doc.id}')">
             <img class="w-full h-full object-cover" src="${doc.thumbnail}" alt="Thumbnail">
-            <div class="absolute inset-0 bg-blue-600/10 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="absolute inset-0 ${theme.bg} opacity-0 group-hover:opacity-90 flex items-center justify-center transition-opacity">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ${theme.text}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
             </div>
@@ -969,9 +979,9 @@ function createDocCard(doc) {
 
         <div class="flex-grow min-w-0">
             <h3 class="text-sm font-bold text-slate-800 truncate">${doc.fileName}</h3>
-            <div class="flex gap-2 mt-1">
-                <span class="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-bold rounded">${doc.type}</span>
-                <span class="text-[9px] text-slate-400 font-medium italic">Trang ${doc.pages.join(", ")}</span>
+            <div class="flex items-center gap-2 mt-1.5">
+                <span class="px-2 py-0.5 ${theme.bg} ${theme.text} text-xs font-bold rounded">${doc.type}</span>
+                <span class="text-xs text-slate-500 font-medium italic">Trang ${doc.pages.join(", ")}</span>
             </div>
         </div>
         
@@ -981,6 +991,17 @@ function createDocCard(doc) {
     `;
   return card;
 }
+
+// Hàm xử lý nút "Chọn tất cả"
+window.toggleAllDocs = function(checkbox) {
+    const isChecked = checkbox.checked;
+    const checkboxes = document.querySelectorAll('.doc-select');
+    checkboxes.forEach(cb => {
+        cb.checked = isChecked;
+    });
+    // Gọi hàm cập nhật lại màu sắc của các hàng
+    updateResultsUI();
+};
 
 // 4. Thêm hàm update giao diện kết quả
 function updateResultsUI() {
