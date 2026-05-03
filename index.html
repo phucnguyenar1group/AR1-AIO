@@ -356,16 +356,16 @@
             <section id="view-pdf-splitter" class="portal-view" data-module-view="pdf-splitter" hidden>
                 <div class="app-shell splitter-shell">
                     <header class="module-header" aria-label="Page title">
-                        <h1>PDF Shipment Docs Splitter</h1>
+                        <h1>Tool tách docs PDF</h1>
                     </header>
 
                     <div class="workspace-grid splitter-grid">
                         <aside class="panel control-panel">
                             <div id="dropZone" class="drop-zone">
-                                <p>Drag and drop PDF file here</p>
-                                <p class="hint">or</p>
+                                <p>Kéo và thả file PDF tại đây</p>
+                                <p class="hint">hoặc</p>
                                 <label class="primary-btn file-btn">
-                                    Choose file
+                                    Chọn file
                                     <input id="fileInput" type="file" accept=".pdf,application/pdf" hidden>
                                 </label>
                                 <p id="fileName" class="file-name"></p>
@@ -373,7 +373,7 @@
 
                             <div class="input-grid two splitter-inputs">
                                 <label>
-                                    <span>Vendor code</span>
+                                    <span>Vendor</span>
                                     <select id="vendorCode">
                                         <option value="">-- Chọn Vendor --</option>
                                         <option value="CZY">CZY - Cozy</option>
@@ -385,35 +385,51 @@
                                     <span>PO#</span>
                                     <select id="poCode">
                                         <option value="">-- Chọn PO# --</option>
-                                        <option value="A095">A095</option> <option value="A096">A096</option>
-                                        <option value="A097">A097</option> <option value="A098">A098</option>
-                                        <option value="A099">A099</option> <option value="A100">A100</option>
-                                        <option value="A101">A101</option> <option value="A102">A102</option>
-                                        <option value="A103">A103</option> <option value="A104">A104</option>
-                                        <option value="A105">A105</option> <option value="A106">A106</option>
-                                        <option value="A107">A107</option> <option value="A108">A108</option>
-                                        <option value="A109">A109</option> <option value="A110">A110</option>
-                                        <option value="A111">A111</option> <option value="A112">A112</option>
-                                        <option value="A113">A113</option> <option value="A114">A114</option>
-                                        <option value="A115">A115</option> <option value="A116">A116</option>
-                                        <option value="A117">A117</option> <option value="A118">A118</option>
-                                        <option value="A119">A119</option> <option value="A120">A120</option>
+                                        <option value="A095">A095</option>
+                                        <option value="A096">A096</option>
+                                        <option value="A097">A097</option>
+                                        <option value="A098">A098</option>
+                                        <option value="A099">A099</option>
+                                        <option value="A100">A100</option>
+                                        <option value="A101">A101</option>
+                                        <option value="A102">A102</option>
+                                        <option value="A103">A103</option>
+                                        <option value="A104">A104</option>
+                                        <option value="A105">A105</option>
+                                        <option value="A106">A106</option>
+                                        <option value="A107">A107</option>
+                                        <option value="A108">A108</option>
+                                        <option value="A109">A109</option>
+                                        <option value="A110">A110</option>
+                                        <option value="A111">A111</option>
+                                        <option value="A112">A112</option>
+                                        <option value="A113">A113</option>
+                                        <option value="A114">A114</option>
+                                        <option value="A115">A115</option>
+                                        <option value="A116">A116</option>
+                                        <option value="A117">A117</option>
+                                        <option value="A118">A118</option>
+                                        <option value="A119">A119</option>
+                                        <option value="A120">A120</option>
                                     </select>
                                 </label>
                             </div>
 
                             <div class="action-row">
-                                <button id="processBtn" class="primary-btn" type="button" disabled>Split
-                                    Documents</button>
+                                <button id="processBtn" class="primary-btn" type="button" disabled>Tách file</button>
                             </div>
 
-                            <section class="processing">
+                            <section class="processing" id="processingSection">
                                 <div class="panel-heading compact">
-                                    <div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
                                         <h2>Log</h2>
+                                        <!-- Spinner ẩn, sẽ hiện khi JS gọi -->
+                                        <i class="fas fa-circle-notch fa-spin processing-spinner"
+                                            style="display: none;"></i>
                                     </div>
                                 </div>
-                                <pre id="log" class="log"></pre>
+                                <!-- Đổi <pre> thành <div> để chứa icon đẹp hơn -->
+                                <div id="log" class="log log-container"></div>
                             </section>
                         </aside>
 
@@ -421,7 +437,7 @@
                             <div class="panel-heading compact results-heading">
                                 <div class="results-heading-main">
                                     <h2>Kết quả</h2>
-                                    <p class="results-note">Click thumbnail to open preview popup.</p>
+                                    <!-- <p class="results-note">Click thumbnail to open preview popup.</p> -->
                                 </div>
                                 <div class="action-row">
                                     <button id="downloadSelectedBtn" class="primary-btn" type="button">Tải xuống file đã

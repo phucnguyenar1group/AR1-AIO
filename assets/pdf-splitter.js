@@ -49,7 +49,7 @@ function getRuntimeAnalyzerConfig() {
   const fromStorage = String(readStoredAnalyzerUrl() || "").trim();
 
   let analyzerUrl = String(queryAnalyzerUrl || fromConfig || fromStorage).trim();
-  
+
   // ĐÃ SỬA: Luôn dùng URL Hugging Face kể cả khi chạy trên Vercel
   if (!analyzerUrl) {
     analyzerUrl = BACKEND_ANALYZER_DEFAULT_URL;
@@ -111,13 +111,28 @@ const NORMALIZE_ASCII_CACHE = new Map();
 const APPROX_WORD_CACHE = new WeakMap();
 const AI_HEADER_DECISION_CACHE = new Map();
 
-function log(message) {
-  logEl.textContent += `${message}\n`;
+function log(message, type = 'info') {
+  let icon = 'fa-info-circle';
+  // Tự động phân loại dựa trên nội dung text
+  if (message.includes('Error')) type = 'error';
+  else if (message.includes('Done') || message.includes('Ready:')) type = 'success';
+  else if (message.includes('...')) type = 'loading';
+
+  // Gán Icon tương ứng
+  if (type === 'success') icon = 'fa-check-circle';
+  else if (type === 'error') icon = 'fa-exclamation-circle';
+  else if (type === 'loading') icon = 'fa-spinner fa-spin';
+
+  const item = document.createElement('div');
+  item.className = `log-item ${type}`;
+  item.innerHTML = `<i class="fas ${icon} log-icon" style="margin-top: 2px;"></i> <span>${message}</span>`;
+
+  logEl.appendChild(item);
   logEl.scrollTop = logEl.scrollHeight;
 }
 
 function resetLog() {
-  logEl.textContent = "";
+  logEl.innerHTML = "";
 }
 
 function setSelectedFile(file) {
@@ -230,7 +245,7 @@ function detectDocType(text, headerHint = "") {
   if (looksLikeCOO(normalized, words)) return "COO";
   if (looksLikeCOA(normalized, words)) return "COA";
   if (looksLikeCAD(normalized, words)) return "CAD";
-  
+
   if (hasApproxWord(words, "health", 2) && hasApproxWord(words, "certificate", 3) && !normalized.includes("analysis certificate") && !normalized.includes("certificate of quantity and quality")) {
     return "HC";
   }
@@ -601,7 +616,7 @@ async function getOcrWorker() {
 
 async function terminateOcrWorker() {
   if (!ocrWorker) return;
-  try { await ocrWorker.terminate(); } catch {}
+  try { await ocrWorker.terminate(); } catch { }
   ocrWorker = null;
 }
 
@@ -807,7 +822,7 @@ async function extractPageTypes(pdf) {
     const scores = buildTypeScores(normalized, normalizedHeader, normalizedHeaderAscii, words);
     const headerType = resolveHeaderType(normalizedHeader, normalizedHeader.replace(/\s+/g, ""), normalizedHeaderAscii);
     const primaryScore = getTypePrimaryScore(type, scores);
-    
+
     results.push({
       pageNumber: i, type, source, aiType: aiForcedType, aiConfidence: aiConfidence || 0, unknownBoost, chars: finalText.length, headerType, primaryScore, ...scores
     });
@@ -985,10 +1000,12 @@ async function handleProcess() {
 
   const vendorCode = sanitizeCodePart(vendorCodeInput.value).toUpperCase();
   const poCode = sanitizeCodePart(poCodeInput.value).toUpperCase();
-  if (!vendorCode || !poCode) { log("Please input both Vendor code and PO#."); return; }
+  if (!vendorCode || !poCode) { log("Bạn chọn Vendor và PO# trước nha"); return; }
   const filePrefix = `${vendorCode}${poCode}`;
 
-  processBtn.disabled = true; processBtn.textContent = "Processing...";
+  processBtn.disabled = true;
+  processBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin" style="margin-right: 6px;"></i> Processing...';
+  document.getElementById("processingSection").classList.add("is-processing");
 
   try {
     log(`Reading file: ${selectedFile.name}`);
@@ -999,7 +1016,7 @@ async function handleProcess() {
     log("OCR fallback: ON");
     log(`AI header classifier: ${USE_BACKEND_ANALYZER ? "ON" : "OFF"} (url=${BACKEND_ANALYZER_URL})`);
     log("Detecting doc type per page...");
-    
+
     const pageTypes = await extractPageTypes(pdf);
     pageTypes.forEach((item) => log(`Page ${item.pageNumber}: ${item.type} (source=${item.source}, ai=${item.aiType || "UNKNOWN"}:${(item.aiConfidence || 0).toFixed(2)})`));
 
@@ -1013,7 +1030,9 @@ async function handleProcess() {
   } catch (error) {
     log(`Error: ${error.message || error}`);
   } finally {
-    processBtn.disabled = false; processBtn.textContent = "Split Documents";
+    processBtn.disabled = false; 
+    processBtn.innerHTML = 'Split Documents';
+    document.getElementById("processingSection").classList.remove("is-processing");
   }
 }
 

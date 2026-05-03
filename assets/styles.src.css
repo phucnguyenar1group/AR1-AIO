@@ -571,6 +571,13 @@ select:focus {
 
 .action-row {
     margin-top: 18px;
+    width: 100%;
+}
+
+.action-row button {
+    flex: 1;
+    display: flex;
+    justify-content: center;
 }
 
 .multi-sku-actions {
@@ -1040,7 +1047,7 @@ td {
 .drop-zone {
     border: 2px dashed rgba(0, 95, 115, 0.35);
     border-radius: var(--radius-lg);
-    padding: 20px;
+    padding: 60px;
     text-align: center;
     background: rgba(255, 255, 255, 0.64);
 }
@@ -2185,3 +2192,38 @@ select:focus {
     }
 } */
 
+/* TỐI ƯU GIAO DIỆN LOG & LOADING */
+.log-container {
+    margin: 0;
+    min-height: 320px;
+    max-height: 420px;
+    overflow-y: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(68, 56, 37, 0.1);
+    background: #fffdf8;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Giãn cách các dòng log */
+}
+.log-item {
+    flex-shrink: 0; /* THÊM DÒNG NÀY: Dặn trình duyệt không được bóp méo dòng log để tạo thanh cuộn */
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text);
+    animation: fade-up 0.25s ease-out; /* Hiệu ứng nảy mượt mà */
+}
+/* Đổi màu theo trạng thái */
+.log-item.info .log-icon { color: #3b82f6; } 
+.log-item.success .log-icon { color: #10b981; }
+.log-item.error .log-icon { color: #ef4444; }
+.log-item.loading .log-icon { color: #f59e0b; }
+
+.is-processing .processing-spinner { 
+    display: block !important; 
+    color: var(--primary); 
+}
