@@ -95,47 +95,47 @@ const AI_HEADER_DECISION_CACHE = new Map();
 // --- LOGIC VẼ THANH LOADING ĐẸP ---
 const devLog = console.log;
 
+// 1. Cập nhật kịch bản tin nhắn (Dựa trên mẫu Progress bar split pdf.txt)
+const progressMessages = [
+  { limit: 15, text: "Đang đọc dữ liệu file... Đợi mình xíu nha!", emoji: "📄" },
+  { limit: 35, text: "Đang tỉ mẩn tách từng loại cho bạn...", emoji: "✂️" },
+  { limit: 55, text: "AI đang sắp xếp các trang cực kỳ ngăn nắp...", emoji: "📂" },
+  { limit: 85, text: "Gần xong rồi, đang đóng gói lại các file lẻ...", emoji: "📦" },
+  { limit: 100, text: "Xong rồi nè! Tài liệu đã sẵn sàng để tải về.", emoji: "🎉" }
+];
+
+// 2. Sửa lại hàm updateProgress
 function updateProgress(percent, title, subtext, isError = false) {
-    const safePercent = Math.min(100, Math.max(0, percent));
-    const icon = isError ? 'fa-exclamation-triangle' : (percent >= 100 ? 'fa-check-circle' : 'fa-magic fa-spin');
+  const progressContainer = document.getElementById('progressContainer');
+  const progressBarFill = document.getElementById('progress-bar-fill');
+  const floatingLabel = document.getElementById('floating-label');
+  const percentText = document.getElementById('percent-text');
+  const currentEmoji = document.getElementById('current-emoji');
+  const statusMessage = document.getElementById('status-message-text');
 
-    // Kiểm tra xem khung UI progress đã được vẽ lần nào chưa
-    let progressUI = logEl.querySelector('.progress-ui');
+  if (progressContainer) progressContainer.style.display = 'flex';
 
-    // Nếu chưa có (mới bắt đầu), thì vẽ khung sườn tĩnh
-    if (!progressUI) {
-        logEl.innerHTML = `
-            <div class="progress-ui">
-                <div class="progress-text" id="prog-title"></div>
-                <div class="progress-track">
-                    <div class="progress-fill" id="prog-fill" style="width: 0%;"></div>
-                </div>
-                <div class="progress-percent" id="prog-percent">0%</div>
-                <div class="progress-subtext" id="prog-subtext"></div>
-            </div>
-        `;
-    }
+  const safePercent = Math.min(100, Math.max(0, percent));
 
-    // Lấy các element có sẵn ra để cập nhật thông số (không vẽ lại từ đầu)
-    const titleEl = document.getElementById('prog-title');
-    const fillEl = document.getElementById('prog-fill');
-    const percentEl = document.getElementById('prog-percent');
-    const subtextEl = document.getElementById('prog-subtext');
+  // Cập nhật thanh bar và label
+  if (progressBarFill) progressBarFill.style.width = `${safePercent}%`;
+  if (floatingLabel) floatingLabel.style.left = `${safePercent}%`;
+  if (percentText) percentText.textContent = `${Math.round(safePercent)}%`;
 
-    // Cập nhật nội dung động
-    titleEl.className = `progress-text ${isError ? 'error-text' : ''}`;
-    titleEl.innerHTML = `<i class="fas ${icon}"></i> <span>${title}</span>`;
-    
-    // Thuộc tính width thay đổi sẽ kích hoạt hiệu ứng CSS transition chạy mượt mà
-    fillEl.style.width = `${safePercent}%`;
-    fillEl.style.background = isError ? '#ef4444' : 'linear-gradient(90deg, #0a9396, #005f73)';
-    
-    percentEl.textContent = `${Math.round(safePercent)}%`;
-    subtextEl.textContent = subtext;
+  // Cập nhật tin nhắn dựa trên kịch bản hoặc text truyền vào
+  const stage = progressMessages.find(m => safePercent <= m.limit);
+  if (statusMessage) {
+    statusMessage.innerText = isError ? subtext : `"${subtext || stage?.text}"`;
+  }
+  if (currentEmoji && stage && !isError) {
+    currentEmoji.innerText = stage.emoji;
+  }
 }
 
 function resetLog() {
-  logEl.innerHTML = "";
+  if (logEl) {
+    logEl.innerHTML = "";
+  }
 }
 
 function setSelectedFile(file) {
@@ -735,14 +735,6 @@ async function extractPageTypes(pdf) {
   const results = [];
 
   for (let i = 1; i <= pdf.numPages; i += 1) {
-    
-    // UI CẬP NHẬT PHẦN TRĂM KHI ĐỌC TỪNG TRANG (chiếm 60% tiến trình)
-    const currentPercent = 10 + (i / pdf.numPages) * 60;
-    updateProgress(
-        currentPercent, 
-        "Đang phân tích dữ liệu PDF...", 
-        `AI đang phân tích trang ${i}/${pdf.numPages}. Bạn đợi một chút nhé ☕`
-    );
 
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
@@ -913,6 +905,14 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 2500);
 }
 
+// Thêm hàm này để xử lý nút tải xuống từng file trong giao diện mới
+window.downloadSingleDoc = function(docId) {
+    const doc = getDocById(docId);
+    if (doc) {
+        downloadBlob(doc.blob, doc.fileName);
+    }
+}
+
 async function buildZipBlob(docs) {
   const zip = new JSZip();
   docs.forEach((doc) => zip.file(doc.fileName, doc.bytes));
@@ -941,24 +941,63 @@ function clearResults() {
   resultsGrid.innerHTML = ""; resultsSection.hidden = true;
 }
 
+// 3. Sửa lại hàm tạo thẻ tài liệu (Dựa trên mẫu Split results.txt)
 function createDocCard(doc) {
   const card = document.createElement("article");
-  card.className = "doc-card";
+  card.className = "file-item group bg-white rounded-[1.5rem] p-4 shadow-sm border border-slate-100 hover:border-blue-200 transition-all flex items-center gap-4 cursor-pointer relative";
+
+  // Thêm event click vào card để toggle checkbox giống mẫu
+  card.onclick = () => {
+    const cb = card.querySelector('.doc-select');
+    cb.checked = !cb.checked;
+    updateResultsUI();
+  };
+
   card.innerHTML = `
-    <img class="doc-thumb" src="${doc.thumbnail}" alt="${doc.fileName}" data-preview-id="${doc.id}">
-    <div class="doc-body">
-      <p class="doc-name">${doc.fileName}</p>
-      <p class="doc-meta">Type: ${doc.type} | Pages: ${doc.pages.join(", ")}</p>
-      <div class="doc-row">
-        <label class="doc-select-wrap">
-          <input class="doc-select" type="checkbox" data-doc-id="${doc.id}" checked>
-          <span>Select</span>
-        </label>
-        <button class="mini-btn" type="button" data-download-id="${doc.id}">Download</button>
-      </div>
-    </div>
-  `;
+        <input type="checkbox" class="doc-select custom-checkbox appearance-none w-6 h-6 border-2 border-slate-200 rounded-lg checked:bg-blue-600 checked:border-blue-600 transition-all flex-shrink-0" 
+            data-doc-id="${doc.id}" checked onclick="event.stopPropagation(); updateResultsUI();">
+        
+        <div class="w-16 h-20 bg-white rounded-md border border-slate-200 flex-shrink-0 overflow-hidden shadow-sm relative hover:ring-2 hover:ring-blue-400 transition-all"
+             onclick="event.stopPropagation(); openPreview('${doc.id}')">
+            <img class="w-full h-full object-cover" src="${doc.thumbnail}" alt="Thumbnail">
+            <div class="absolute inset-0 bg-blue-600/10 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+        </div>
+
+        <div class="flex-grow min-w-0">
+            <h3 class="text-sm font-bold text-slate-800 truncate">${doc.fileName}</h3>
+            <div class="flex gap-2 mt-1">
+                <span class="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[9px] font-bold rounded">${doc.type}</span>
+                <span class="text-[9px] text-slate-400 font-medium italic">Trang ${doc.pages.join(", ")}</span>
+            </div>
+        </div>
+        
+        <button class="mini-btn" type="button" onclick="event.stopPropagation(); downloadSingleDoc('${doc.id}')">
+            <i class="fas fa-download"></i>
+        </button>
+    `;
   return card;
+}
+
+// 4. Thêm hàm update giao diện kết quả
+function updateResultsUI() {
+  const checkboxes = document.querySelectorAll('.doc-select');
+  const checked = document.querySelectorAll('.doc-select:checked');
+  const countLabel = document.getElementById('fileCountLabel');
+  const selectAll = document.getElementById('selectAllDocs');
+
+  if (countLabel) countLabel.innerText = `${checked.length}/${checkboxes.length} Files`;
+  if (selectAll) selectAll.checked = (checked.length === checkboxes.length && checkboxes.length > 0);
+
+  // Highlight các card được chọn
+  document.querySelectorAll('.file-item').forEach(item => {
+    const cb = item.querySelector('.doc-select');
+    if (cb && cb.checked) item.classList.add('item-selected', 'bg-blue-50/50');
+    else item.classList.remove('item-selected', 'bg-blue-50/50');
+  });
 }
 
 function appendDocCard(doc) {
@@ -980,11 +1019,11 @@ async function splitGroupsIncremental(arrayBuffer, groups, filePrefix, pdf) {
 
   for (let i = 0; i < groups.length; i += 1) {
     // UI CẬP NHẬT PHẦN TRĂM LÚC TÁCH FILE (chiếm 25% tiến trình cuối)
-    const currentPercent = 70 + ((i+1) / groups.length) * 25;
+    const currentPercent = 70 + ((i + 1) / groups.length) * 25;
     updateProgress(
-        currentPercent, 
-        "Đang xuất file tài liệu...", 
-        `Hệ thống đang đóng gói nhóm tài liệu thứ ${i+1}/${groups.length}. Sắp xong rồi...`
+      currentPercent,
+      "Đang xuất file tài liệu...",
+      `Hệ thống đang đóng gói nhóm tài liệu thứ ${i + 1}/${groups.length}. Sắp xong rồi...`
     );
 
     const group = groups[i];
@@ -1011,21 +1050,39 @@ async function splitGroupsIncremental(arrayBuffer, groups, filePrefix, pdf) {
 
 async function handleProcess() {
   if (!selectedFile) return;
-  resetLog(); clearResults();
+
+  // 1. Reset trạng thái cũ
+  resetLog();
+  clearResults(); // Hàm này nên ẩn resultsSection và xóa grid cũ
 
   const vendorCode = sanitizeCodePart(vendorCodeInput.value).toUpperCase();
   const poCode = sanitizeCodePart(poCodeInput.value).toUpperCase();
-  if (!vendorCode || !poCode) { 
-      updateProgress(0, "Thiếu thông tin", "Bạn vui lòng chọn Vendor và PO# ở phía trên nhé!", true);
-      return; 
+
+  if (!vendorCode || !poCode) {
+    updateProgress(0, "Thiếu thông tin", "Bạn vui lòng chọn Vendor và PO# ở phía trên nhé!", true);
+    return;
   }
+
   const filePrefix = `${vendorCode}${poCode}`;
 
+  // 2. Cập nhật trạng thái nút và hiển thị vùng tiến trình
   processBtn.disabled = true;
-  processBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin" style="margin-right: 6px;"></i> Processing...';
-  document.getElementById("processingSection").classList.add("is-processing");
+  processBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin" style="margin-right: 6px;"></i> Đang xử lý...';
+
+  const processingSection = document.getElementById("processingSection");
+  if (processingSection) {
+    processingSection.classList.add("is-processing");
+    // Đảm bảo vùng Progress UI mới được hiển thị
+    const progressContainer = document.getElementById('progressContainer');
+    if (progressContainer) progressContainer.style.display = 'flex';
+  }
+
+  // Cập nhật tên file vào giao diện kết quả (nếu có element này trong mẫu Split Results)
+  const fileDisplay = document.getElementById("current-file-display");
+  if (fileDisplay) fileDisplay.textContent = `File: ${selectedFile.name}`;
 
   try {
+    // 3. Bắt đầu quá trình đọc file
     updateProgress(5, "Bắt đầu tải file", "Hệ thống đang tiếp nhận file PDF của bạn...");
 
     devLog(`Reading file: ${selectedFile.name}`);
@@ -1034,34 +1091,35 @@ async function handleProcess() {
     const pdf = await loadingTask.promise;
 
     devLog("OCR fallback: ON");
-    devLog(`AI header classifier: ${USE_BACKEND_ANALYZER ? "ON" : "OFF"} (url=${BACKEND_ANALYZER_URL})`);
-    
-    // Giai đoạn 1: Quét từng trang (chiếm 10% đến 70%)
-    const pageTypes = await extractPageTypes(pdf);
-    pageTypes.forEach((item) => devLog(`Page ${item.pageNumber}: ${item.type}`));
+    devLog(`AI header classifier: ${USE_BACKEND_ANALYZER ? "ON" : "OFF"}`);
 
+    // 4. Giai đoạn 1: Phân tích trang (Sử dụng updateProgress bên trong extractPageTypes)
+    const pageTypes = await extractPageTypes(pdf);
     const groups = buildGroups(pageTypes);
 
-    // Giai đoạn 2: Tiến hành cắt file (chiếm 70% đến 95%)
+    // 5. Giai đoạn 2: Tiến hành cắt và xuất file
     lastBatchCode = filePrefix;
     await splitGroupsIncremental(arrayBuffer, groups, filePrefix, pdf);
-    
-    // Hoàn thành
+
+    // 6. Hoàn tất: Cập nhật UI kết quả cuối cùng
+    // Gọi hàm này để cập nhật số lượng "0/X Files" và trạng thái checkbox "Chọn tất cả"
+    if (typeof updateResultsUI === 'function') {
+      updateResultsUI();
+    }
+
     updateProgress(100, "Hoàn tất xuất sắc!", `Hệ thống đã tách xong ${splitDocs.length} tài liệu. Bạn hãy tải về ở cột bên cạnh nhé 🎉`);
 
   } catch (error) {
     devLog(`Error: ${error.message || error}`);
     updateProgress(0, "Đã có lỗi xảy ra", error.message || "Tệp PDF không hợp lệ hoặc lỗi hệ thống", true);
   } finally {
-    processBtn.disabled = false; 
+    // 7. Khôi phục trạng thái nút
+    processBtn.disabled = false;
     processBtn.innerHTML = 'Split Documents';
-    
-    // Ép tắt chế độ processing và ẩn spinner ngay lập tức
-    const processingSection = document.getElementById("processingSection");
+
     if (processingSection) {
-        processingSection.classList.remove("is-processing");
-        // Force reflow để đảm bảo CSS được áp dụng ngay
-        void processingSection.offsetWidth; 
+      processingSection.classList.remove("is-processing");
+      void processingSection.offsetWidth;
     }
   }
 }

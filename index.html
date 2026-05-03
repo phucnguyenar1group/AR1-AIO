@@ -362,7 +362,7 @@
                     <div class="workspace-grid splitter-grid">
                         <aside class="panel control-panel">
                             <div id="dropZone" class="drop-zone">
-                                <p>Kéo và thả file PDF tại đây</p>
+                                <p>Kéo và thả file PDF tại đây 👇</p>
                                 <p class="hint">hoặc</p>
                                 <label class="primary-btn file-btn">
                                     Chọn file
@@ -420,39 +420,67 @@
                             </div>
 
                             <section class="processing" id="processingSection">
-                                <div class="panel-heading compact">
-                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                        <h2>Tiến trình</h2>
-                                        <i class="fas fa-circle-notch fa-spin processing-spinner"
-                                            style="display: none;"></i>
+                                <div class="progress-ui" id="progressContainer" style="display: none;">
+                                    <div class="relative pt-12 pb-4 w-[calc(100%-3rem)] mx-auto">
+                                        <div id="floating-label"
+                                            class="absolute -top-6 flex flex-col items-center transition-all duration-300 ease-out -translate-x-1/2"
+                                            style="left: 0%">
+                                            <span id="current-emoji" class="text-2xl mb-1 animate-bounce-slow">📄</span>
+                                            <div
+                                                class="bg-blue-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-lg shadow-blue-200 tooltip-arrow">
+                                                <span id="percent-text">0%</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="h-5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200/30 p-[2px]">
+                                            <div id="progress-bar-fill"
+                                                class="h-full bg-blue-600 rounded-full transition-all duration-300 shadow-[0_0_12px_rgba(37,99,235,0.3)]"
+                                                style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                    <div
+                                        class="bg-slate-50 rounded-2xl p-5 border border-slate-100 text-center min-h-[80px] flex items-center justify-center w-full">
+                                        <p id="status-message-text"
+                                            class="text-sm font-medium text-slate-600 leading-relaxed italic">
+                                            "Đang chờ file PDF từ bạn..."
+                                        </p>
                                     </div>
                                 </div>
-                                <div id="log" class="log log-container"></div>
+                                <div id="log" class="log log-container" style="display: none;"></div>
                             </section>
                         </aside>
 
-                        <section id="resultsSection" class="panel visualization-panel splitter-results">
+                        <section id="resultsSection" class="panel visualization-panel splitter-results" hidden>
                             <div class="panel-heading compact results-heading">
                                 <div class="results-heading-main">
-                                    <h2>Kết quả</h2>
-                                    <!-- <p class="results-note">Click thumbnail to open preview popup.</p> -->
+                                    <h2 class="text-lg font-extrabold text-slate-800">Kết quả tách</h2>
+                                    <p id="current-file-display"
+                                        class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">File: --
+                                    </p>
                                 </div>
                                 <div class="action-row">
                                     <button id="downloadSelectedBtn" class="primary-btn" type="button">Tải xuống file đã
                                         chọn</button>
-                                    <button id="downloadAllBtn" class="ghost-btn" type="button">Tải xuống tất cả
-                                        (ZIP)</button>
+                                    <button id="downloadAllBtn" class="ghost-btn" type="button">Tất cả (ZIP)</button>
                                 </div>
                             </div>
-                            <div class="results-select-row">
-                                <div class="results-select-col">
-                                    <input id="selectAllDocs" type="checkbox" checked>
-                                </div>
-                                <label class="bulk-check-label" for="selectAllDocs">Chọn tất cả</label>
+
+                            <div
+                                class="flex items-center justify-between bg-white px-4 py-3 rounded-2xl shadow-sm border border-slate-100 sticky top-0 z-10 mb-4">
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="checkbox" id="selectAllDocs"
+                                        class="custom-checkbox appearance-none w-6 h-6 border-2 border-slate-200 rounded-lg checked:bg-blue-600 checked:border-blue-600 transition-all cursor-pointer"
+                                        checked>
+                                    <span
+                                        class="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors">Chọn
+                                        tất cả</span>
+                                </label>
+                                <span id="fileCountLabel"
+                                    class="text-[10px] font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-full uppercase">0
+                                    Files</span>
                             </div>
-                            <p id="resultsEmptyState" class="results-empty">Chưa có kết quả. Hãy chọn PDF và bấm Split
-                                Documents.</p>
-                            <div id="resultsGrid" class="results-grid"></div>
+
+                            <div id="resultsGrid" class="results-grid space-y-4"></div>
                         </section>
                     </div>
                 </div>
