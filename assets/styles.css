@@ -766,7 +766,10 @@ input:focus, select:focus {
   box-shadow: 0 14px 34px rgba(33, 24, 9, 0.12);
 }
 #view-logistics .ring-card {
-  display: none;
+  display: block !important;
+}
+#view-logistics .breakdown-grid {
+  display: grid !important;
 }
 .eff-ring {
   width: 140px;
@@ -1405,14 +1408,8 @@ input:focus, select:focus {
   overflow: visible;
   text-overflow: clip;
 }
-#pallet-quick-spec, #pallet-layer-spec {
-  display: none !important;
-}
-.highlight-card {
-  display: none;
-}
-.breakdown-grid {
-  display: none;
+#pallet-quick-spec, #pallet-layer-spec .highlight-card {
+  display: block !important;
 }
 .insights-grid {
   grid-template-columns: minmax(260px, 0.7fr) minmax(0, 1.3fr);
@@ -1552,7 +1549,7 @@ input:focus, select:focus {
   }
 }
 #view-logistics .visual-head {
-  display: none !important;
+  display: flex !important;
 }
 #view-logistics .controls-column {
   display: flex;
@@ -1592,7 +1589,7 @@ input:focus, select:focus {
 #view-logistics .visualization-panel {
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-height: 560px !important;
   padding: 0;
   background: transparent;
   border: 0;
@@ -1602,6 +1599,11 @@ input:focus, select:focus {
 }
 #view-logistics .visual-stage {
   flex: 1 1 auto;
-  min-height: 0 !important;
+  min-height: 560px !important;
   height: 100%;
+}
+#view-logistics #scene-canvas {
+  width: 100%;
+  height: 100%;
+  min-height: 560px !important;
 }

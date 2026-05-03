@@ -896,7 +896,11 @@ select:focus {
 }
 
 #view-logistics .ring-card {
-    display: none;
+    display: block !important;
+}
+
+#view-logistics .breakdown-grid {
+    display: grid !important;
 }
 
 .eff-ring {
@@ -1704,16 +1708,9 @@ select:focus {
 }
 
 #pallet-quick-spec,
-#pallet-layer-spec {
-    display: none !important;
-}
-
+#pallet-layer-spec 
 .highlight-card {
-    display: none;
-}
-
-.breakdown-grid {
-    display: none;
+    display: block !important;
 }
 
 .insights-grid {
@@ -2119,7 +2116,7 @@ select:focus {
 
 /* Logistics: hide stage header and keep preview inside card */
 #view-logistics .visual-head {
-    display: none !important;
+    display: flex !important;
 }
 
 #view-logistics .controls-column {
@@ -2165,7 +2162,7 @@ select:focus {
 #view-logistics .visualization-panel {
     display: flex;
     flex-direction: column;
-    min-height: 0;
+    min-height: 560px !important;
     padding: 0;
     background: transparent;
     border: 0;
@@ -2176,15 +2173,15 @@ select:focus {
 
 #view-logistics .visual-stage {
     flex: 1 1 auto;
-    min-height: 0 !important;
+    min-height: 560px !important;
     height: 100%;
 }
 
-/* #view-logistics #scene-canvas {
+#view-logistics #scene-canvas {
     width: 100%;
     height: 100%;
-    min-height: 0 !important;
-} */
+    min-height: 560px !important;
+}
 
 /* @media (min-width: 1181px) {
     #view-logistics .step-panel {
