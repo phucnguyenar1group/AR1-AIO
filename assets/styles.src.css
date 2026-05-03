@@ -420,12 +420,12 @@ label span,
     background: rgba(255, 255, 255, 0.9);
 }
 
-.safety-score-card > strong {
+.safety-score-card>strong {
     display: block;
     font-size: 0.95rem;
 }
 
-.safety-score-card > p {
+.safety-score-card>p {
     margin: 8px 0 0;
     color: var(--muted);
     line-height: 1.45;
@@ -495,8 +495,8 @@ select:focus {
     box-shadow: 0 0 0 4px rgba(0, 95, 115, 0.1);
 }
 
-.stacked-label + .highlight-card,
-.stacked-label + .subtle-note {
+.stacked-label+.highlight-card,
+.stacked-label+.subtle-note {
     margin-top: 14px;
 }
 
@@ -997,7 +997,7 @@ select:focus {
     color: var(--text);
 }
 
-.bullet-list li + li {
+.bullet-list li+li {
     margin-top: 10px;
 }
 
@@ -1047,7 +1047,7 @@ td {
 .drop-zone {
     border: 2px dashed rgba(0, 95, 115, 0.35);
     border-radius: var(--radius-lg);
-    padding: 80px 20px;
+    padding: 40px;
     text-align: center;
     background: rgba(255, 255, 255, 0.64);
 }
@@ -1613,7 +1613,7 @@ select:focus {
 }
 
 .drop-zone {
-    border: 2px dashed #c7d2e9;
+    border: 4px dashed #c7d2e9;
 }
 
 .drop-zone.drag-over {
@@ -1639,6 +1639,7 @@ select:focus {
 }
 
 @media (max-width: 1180px) {
+
     #appSidebar,
     #appSidebar.is-collapsed {
         width: 100%;
@@ -1713,8 +1714,7 @@ select:focus {
 }
 
 #pallet-quick-spec,
-#pallet-layer-spec 
-.highlight-card {
+#pallet-layer-spec .highlight-card {
     display: block !important;
 }
 
@@ -1886,6 +1886,7 @@ select:focus {
 
 /* --- Compact Desktop Layout (Less Nested Cards, Internal Scroll) --- */
 @media (min-width: 1181px) {
+
     html,
     body {
         height: 100%;
@@ -1987,8 +1988,8 @@ select:focus {
         min-height: 46px;
     }
 
-    #view-logistics .step-panel .stacked-label + .subtle-note,
-    #view-logistics .step-panel .subtle-note + .mini-readout {
+    #view-logistics .step-panel .stacked-label+.subtle-note,
+    #view-logistics .step-panel .subtle-note+.mini-readout {
         margin-top: 4px;
     }
 
@@ -2088,16 +2089,16 @@ select:focus {
     }
 
     #view-pdf-splitter .drop-zone {
-        padding: 14px;
+        padding: 120px;
         border-radius: 12px;
     }
 
     #view-pdf-splitter .processing {
-        margin-top: 12px;
+        margin-top: 24px;
         border: 0;
         border-radius: 0;
         padding: 0;
-        flex: 1;
+        height: 240px;
         min-height: 0;
     }
 
@@ -2131,7 +2132,7 @@ select:focus {
     min-height: 0;
 }
 
-#view-logistics .controls-column > .step-switch {
+#view-logistics .controls-column>.step-switch {
     padding: 0 !important;
     background: transparent !important;
     border: 0 !important;
@@ -2177,9 +2178,9 @@ select:focus {
 }
 
 #view-logistics .visual-stage,
-    #view-logistics #scene-canvas {
-        min-height: 0 !important;
-        height: 100% !important;
+#view-logistics #scene-canvas {
+    min-height: 0 !important;
+    height: 100% !important;
 }
 
 /* @media (min-width: 1181px) {
@@ -2207,6 +2208,7 @@ select:focus {
     flex-direction: column;
     gap: 8px;
 }
+
 /* Khối Progress Bar UI mới thay thế log chữ */
 .progress-ui {
     display: flex;
@@ -2217,6 +2219,7 @@ select:focus {
     text-align: center;
     animation: fade-up 0.4s ease-out;
 }
+
 .progress-text {
     font-size: 1.15rem;
     font-weight: 800;
@@ -2226,9 +2229,11 @@ select:focus {
     align-items: center;
     gap: 10px;
 }
+
 .progress-text.error-text {
     color: var(--danger);
 }
+
 .progress-track {
     width: 100%;
     max-width: 280px;
@@ -2237,19 +2242,22 @@ select:focus {
     border-radius: 99px;
     overflow: hidden;
     margin-bottom: 14px;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.04);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
 }
+
 .progress-fill {
     height: 100%;
     border-radius: 99px;
     transition: width 0.3s ease-out;
 }
+
 .progress-percent {
     font-size: 1.8rem;
     font-weight: 800;
     color: var(--text);
     line-height: 1;
 }
+
 .progress-subtext {
     margin-top: 10px;
     font-size: 0.9rem;
@@ -2257,7 +2265,8 @@ select:focus {
     font-style: italic;
     max-width: 280px;
 }
-.is-processing .processing-spinner { 
-    display: block !important; 
-    color: var(--primary); 
+
+.is-processing .processing-spinner {
+    display: block !important;
+    color: var(--primary);
 }
