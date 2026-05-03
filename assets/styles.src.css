@@ -1883,7 +1883,7 @@ select:focus {
 }
 
 /* --- Compact Desktop Layout (Less Nested Cards, Internal Scroll) --- */
-@media (min-width: 1181px) {
+/* @media (min-width: 1181px) {
     html,
     body {
         height: 100%;
@@ -2115,7 +2115,7 @@ select:focus {
         border-radius: 10px;
         border-color: #dfe5f2;
     }
-}
+} */
 
 /* Logistics: hide stage header and keep preview inside card */
 #view-logistics .visual-head {
@@ -2180,13 +2180,13 @@ select:focus {
     height: 100%;
 }
 
-#view-logistics #scene-canvas {
+/* #view-logistics #scene-canvas {
     width: 100%;
     height: 100%;
     min-height: 0 !important;
-}
+} */
 
-@media (min-width: 1181px) {
+/* @media (min-width: 1181px) {
     #view-logistics .step-panel {
         margin-top: 0;
         padding: 18px;
@@ -2194,5 +2194,5 @@ select:focus {
         background: #fff;
         border-radius: var(--radius-lg);
     }
-}
+} */
 
