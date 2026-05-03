@@ -895,12 +895,10 @@ select:focus {
     box-shadow: 0 14px 34px rgba(33, 24, 9, 0.12);
 }
 
-#view-logistics .ring-card {
-    display: block !important;
-}
-
+/* Ẩn Header và Ring Card */
+#view-logistics .ring-card,
 #view-logistics .breakdown-grid {
-    display: grid !important;
+    display: none !important;
 }
 
 .eff-ring {
@@ -1880,7 +1878,7 @@ select:focus {
 }
 
 /* --- Compact Desktop Layout (Less Nested Cards, Internal Scroll) --- */
-/* @media (min-width: 1181px) {
+@media (min-width: 1181px) {
     html,
     body {
         height: 100%;
@@ -2112,11 +2110,11 @@ select:focus {
         border-radius: 10px;
         border-color: #dfe5f2;
     }
-} */
+}
 
 /* Logistics: hide stage header and keep preview inside card */
 #view-logistics .visual-head {
-    display: flex !important;
+    display: none !important;
 }
 
 #view-logistics .controls-column {
@@ -2171,16 +2169,10 @@ select:focus {
     overflow: hidden;
 }
 
-#view-logistics .visual-stage {
-    flex: 1 1 auto;
-    min-height: 560px !important;
-    height: 100%;
-}
-
-#view-logistics #scene-canvas {
-    width: 100%;
-    height: 100%;
-    min-height: 560px !important;
+#view-logistics .visual-stage,
+    #view-logistics #scene-canvas {
+        min-height: 0 !important;
+        height: 100% !important;
 }
 
 /* @media (min-width: 1181px) {

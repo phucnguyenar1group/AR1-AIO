@@ -1,5 +1,6 @@
 ﻿<!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,6 +21,7 @@
         window.__APP_CONFIG__ = window.__APP_CONFIG__ || {};
     </script>
 </head>
+
 <body>
     <div class="portal-shell">
         <aside id="appSidebar" class="portal-sidebar panel" aria-label="Main sidebar">
@@ -31,28 +33,18 @@
                 </div>
             </div>
             <nav class="sidebar-nav" aria-label="Main tools">
-                <button
-                    class="sidebar-nav-link sidebar-link active"
-                    data-module-id="logistics"
-                    data-view-target="view-logistics"
-                    data-module-script="assets/app.js"
-                    data-module-script-type="module"
-                    type="button"
-                >
+                <button class="sidebar-nav-link sidebar-link active" data-module-id="logistics"
+                    data-view-target="view-logistics" data-module-script="assets/app.js"
+                    data-module-script-type="module" type="button">
                     <i class="fas fa-shipping-fast" aria-hidden="true"></i>
-                    <span class="sidebar-label">Logistics Optimizer</span>
+                    <span class="sidebar-label">Tối ưu logistics</span>
                     <i class="sidebar-chevron fas fa-chevron-right" aria-hidden="true"></i>
                 </button>
-                <button
-                    class="sidebar-nav-link sidebar-link"
-                    data-module-id="pdf-splitter"
-                    data-view-target="view-pdf-splitter"
-                    data-module-script="assets/pdf-splitter.js"
-                    data-module-script-type="classic"
-                    type="button"
-                >
+                <button class="sidebar-nav-link sidebar-link" data-module-id="pdf-splitter"
+                    data-view-target="view-pdf-splitter" data-module-script="assets/pdf-splitter.js"
+                    data-module-script-type="classic" type="button">
                     <i class="fas fa-file-pdf" aria-hidden="true"></i>
-                    <span class="sidebar-label">PDF Splitter</span>
+                    <span class="sidebar-label">Tách docs PDF</span>
                     <i class="sidebar-chevron fas fa-chevron-right" aria-hidden="true"></i>
                 </button>
             </nav>
@@ -83,210 +75,222 @@
                     <div class="workspace-grid">
                         <div class="controls-column">
                             <div class="step-switch" role="tablist" aria-label="Luồng đóng gói">
-                                <button type="button" class="step-btn active" data-step-button="1">1. Hộp và thùng</button>
+                                <button type="button" class="step-btn active" data-step-button="1">1. Hộp và
+                                    thùng</button>
                                 <button type="button" class="step-btn" data-step-button="2">2. Pallet</button>
                                 <button type="button" class="step-btn" data-step-button="3">3. Container</button>
                                 <button type="button" class="step-btn" data-step-button="4">4. Multi-SKU</button>
                             </div>
 
                             <aside class="control-panel">
-                            <section class="step-panel active" data-step-panel="1">
-                                <div class="field-group-title">Kích thước hộp (cm)</div>
-                                <div class="input-grid three">
-                                    <label>
-                                        <span>Dài</span>
-                                        <input id="box-l" type="number" step="0.1" min="0.1" placeholder="L">
-                                    </label>
-                                    <label>
-                                        <span>Rộng</span>
-                                        <input id="box-w" type="number" step="0.1" min="0.1" placeholder="W">
-                                    </label>
-                                    <label>
-                                        <span>Cao</span>
-                                        <input id="box-h" type="number" step="0.1" min="0.1" placeholder="H">
-                                    </label>
-                                </div>
-                                <label class="stacked-label">
-                                    <span>Số hộp / thùng</span>
-                                    <input id="target-qty" type="number" min="1" step="1" placeholder="Units/carton">
-                                </label>
-
-                                <div class="field-group-title">Safety scoring</div>
-                                <div class="safety-score-card" id="safety-score-card">
-                                    <strong id="safety-winner">Safety winner: --</strong>
-                                    <p id="safety-summary">Nhap du lieu de de xuat phuong an bo tri carton an toan hon.</p>
-                                    <div id="safety-options"></div>
-                                </div>
-                            </section>
-
-                            <section class="step-panel" data-step-panel="2">
-                                <div class="field-group-title">Kích thước thùng gợi ý (cm)</div>
-                                <div class="input-grid three">
-                                    <label>
-                                        <span>Dài</span>
-                                        <input id="carton-l" type="number" step="0.1" min="1" value="31">
-                                    </label>
-                                    <label>
-                                        <span>Rộng</span>
-                                        <input id="carton-w" type="number" step="0.1" min="1" value="26">
-                                    </label>
-                                    <label>
-                                        <span>Cao</span>
-                                        <input id="carton-h" type="number" step="0.1" min="1" value="33">
-                                    </label>
-                                </div>
-
-                                <label class="stacked-label">
-                                    <span>Chuẩn pallet</span>
-                                    <select id="pal-type">
-                                        <option value="us48x40">US Standard (48 x 40 inch)</option>
-                                        <option value="std120x100">Standard (120 x 100 cm)</option>
-                                        <option value="euro120x80">Euro Pallet (120 x 80 cm)</option>
-                                    </select>
-                                </label>
-
-                                <div class="input-grid two">
-                                    <label>
-                                        <span>Dài pallet (cm)</span>
-                                        <input id="pal-l" type="number" step="0.1" min="1" value="121.9">
-                                    </label>
-                                    <label>
-                                        <span>Rộng pallet (cm)</span>
-                                        <input id="pal-w" type="number" step="0.1" min="1" value="101.6">
-                                    </label>
-                                </div>
-
-                                <div class="input-grid two">
-                                    <label>
-                                        <span>Chiều cao tối đa (cm)</span>
-                                        <input id="pal-max-h" type="number" step="0.1" min="1" value="160">
-                                    </label>
-                                    <label>
-                                        <span>Độ dày đế pallet (cm)</span>
-                                        <input id="pal-base" type="number" step="0.1" min="0" value="15">
-                                    </label>
-                                </div>
-
-                                <div class="subtle-note" id="pallet-quick-spec">
-                                    Pallet tính theo không gian hữu dụng sau khi trừ độ dày đế.
-                                </div>
-                                <div class="mini-readout" id="pallet-layer-spec">
-                                    1 layer pallet: -- thùng, độ phủ --%.
-                                </div>
-                                <div class="pallet-overhang-card" id="pallet-overhang-card">
-                                    <strong>Overhang check</strong>
-                                    <p id="pallet-overhang-safe">Khong overhang: --</p>
-                                    <p id="pallet-overhang-keep">Giu so thung cu: overhang L --, W --.</p>
-                                </div>
-                            </section>
-
-                            <section class="step-panel" data-step-panel="3">
-                                <label class="stacked-label">
-                                    <span>Loại container</span>
-                                    <select id="cont-type">
-                                        <option value="20dc">20' Dry Container (DC)</option>
-                                        <option value="40dc">40' Dry Container (DC)</option>
-                                        <option value="40hc">40' High Cube (HC)</option>
-                                        <option value="40rf" selected>40' Reefer (RF)</option>
-                                    </select>
-                                </label>
-
-                                <div class="input-grid three">
-                                    <label>
-                                        <span>Dài trong (cm)</span>
-                                        <input id="cont-l" type="number" step="0.1" min="1" value="1154">
-                                    </label>
-                                    <label>
-                                        <span>Rộng trong (cm)</span>
-                                        <input id="cont-w" type="number" step="0.1" min="1" value="228">
-                                    </label>
-                                    <label>
-                                        <span>Cao trong (cm)</span>
-                                        <input id="cont-h" type="number" step="0.1" min="1" value="223">
-                                    </label>
-                                </div>
-                                <div class="subtle-note" id="container-quick-spec">
-                                    Kích thước là thông số lọt lòng tham chiếu, có thể thay đổi tùy hãng tàu.
-                                </div>
-                            </section>
-
-                            <section class="step-panel" data-step-panel="4">
-                                <div class="field-group-title">Multi-SKU Loading (Beta)</div>
-                                <label class="stacked-label">
-                                    <span>Loại container</span>
-                                    <select id="multi-cont-type">
-                                        <option value="20dc">20' Dry Container (DC)</option>
-                                        <option value="40dc">40' Dry Container (DC)</option>
-                                        <option value="40hc">40' High Cube (HC)</option>
-                                        <option value="40rf" selected>40' Reefer (RF)</option>
-                                    </select>
-                                </label>
-                                <div class="input-grid three">
-                                    <label>
-                                        <span>Dài trong (cm)</span>
-                                        <input id="multi-cont-l" type="number" step="0.1" min="1" value="1154">
-                                    </label>
-                                    <label>
-                                        <span>Rộng trong (cm)</span>
-                                        <input id="multi-cont-w" type="number" step="0.1" min="1" value="228">
-                                    </label>
-                                    <label>
-                                        <span>Cao trong (cm)</span>
-                                        <input id="multi-cont-h" type="number" step="0.1" min="1" value="223">
-                                    </label>
-                                </div>
-                                <div class="subtle-note">
-                                    Đóng trước vào trước và nằm sâu trong container. Đóng sau nằm gần cửa hơn.
-                                </div>
-                                <div class="multi-pack-controls">
+                                <section class="step-panel active" data-step-panel="1">
+                                    <div class="field-group-title">Kích thước hộp (cm)</div>
+                                    <div class="input-grid three">
+                                        <label>
+                                            <span>Dài</span>
+                                            <input id="box-l" type="number" step="0.1" min="0.1" placeholder="L">
+                                        </label>
+                                        <label>
+                                            <span>Rộng</span>
+                                            <input id="box-w" type="number" step="0.1" min="0.1" placeholder="W">
+                                        </label>
+                                        <label>
+                                            <span>Cao</span>
+                                            <input id="box-h" type="number" step="0.1" min="0.1" placeholder="H">
+                                        </label>
+                                    </div>
                                     <label class="stacked-label">
-                                        <span>Che do xep Multi-SKU</span>
-                                        <select id="multi-pack-mode">
-                                            <option value="maximize_qty" selected>Uu tien xep du so luong</option>
-                                            <option value="balanced">Can bang thu tu SKU</option>
+                                        <span>Số hộp / thùng</span>
+                                        <input id="target-qty" type="number" min="1" step="1"
+                                            placeholder="Units/carton">
+                                    </label>
+
+                                    <div class="field-group-title">Safety scoring</div>
+                                    <div class="safety-score-card" id="safety-score-card">
+                                        <strong id="safety-winner">Safety winner: --</strong>
+                                        <p id="safety-summary">Nhap du lieu de de xuat phuong an bo tri carton an toan
+                                            hon.</p>
+                                        <div id="safety-options"></div>
+                                    </div>
+                                </section>
+
+                                <section class="step-panel" data-step-panel="2">
+                                    <div class="field-group-title">Kích thước thùng gợi ý (cm)</div>
+                                    <div class="input-grid three">
+                                        <label>
+                                            <span>Dài</span>
+                                            <input id="carton-l" type="number" step="0.1" min="1" value="31">
+                                        </label>
+                                        <label>
+                                            <span>Rộng</span>
+                                            <input id="carton-w" type="number" step="0.1" min="1" value="26">
+                                        </label>
+                                        <label>
+                                            <span>Cao</span>
+                                            <input id="carton-h" type="number" step="0.1" min="1" value="33">
+                                        </label>
+                                    </div>
+
+                                    <label class="stacked-label">
+                                        <span>Chuẩn pallet</span>
+                                        <select id="pal-type">
+                                            <option value="us48x40">US Standard (48 x 40 inch)</option>
+                                            <option value="std120x100">Standard (120 x 100 cm)</option>
+                                            <option value="euro120x80">Euro Pallet (120 x 80 cm)</option>
                                         </select>
                                     </label>
-                                    <label class="multi-pack-checkbox">
-                                        <input id="multi-relax-tail" type="checkbox" checked>
-                                        <span>Noi nhe thu tu o cuoi container (de khong bi ket SKU)</span>
-                                    </label>
-                                </div>
-                                <div class="multi-sku-catalog">
-                                    <div class="multi-sku-catalog-head">Thu vien SKU (import nhanh)</div>
-                                    <textarea id="multi-sku-catalog-input" rows="5" placeholder="Dan du lieu tu Excel/CSV: SKU, Units/Carton, L, W, H (co tieu de cang tot)."></textarea>
-                                    <div class="action-row multi-sku-catalog-actions">
-                                        <button id="multi-sku-catalog-import-btn" type="button" class="ghost-btn">Import SKU</button>
-                                        <button id="multi-sku-catalog-clear-btn" type="button" class="ghost-btn">Xoa thu vien</button>
-                                    </div>
-                                    <div id="multi-sku-catalog-status" class="mini-readout">Chua import thu vien SKU.</div>
-                                </div>
-                                <div class="multi-view-toggles">
-                                    <label><input id="multi-show-shell" type="checkbox" checked> Hiện vỏ container</label>
-                                    <label><input id="multi-xray-shell" type="checkbox" checked> Xem lòng trong</label>
-                                </div>
-                                <div class="action-row multi-sku-actions">
-                                    <button id="multi-sku-add-btn" type="button" class="ghost-btn">+ Thêm SKU</button>
-                                </div>
-                                <div id="multi-sku-list" class="multi-sku-list"></div>
-                                <div class="multi-kpi-grid">
-                                    <article class="multi-kpi-card">
-                                        <span>Tong CBM da xep</span>
-                                        <strong id="multi-loaded-cbm">-- m3</strong>
-                                    </article>
-                                    <article class="multi-kpi-card">
-                                        <span>Tong so thung da xep</span>
-                                        <strong id="multi-loaded-boxes">--</strong>
-                                    </article>
-                                </div>
-                                <div class="mini-readout" id="multi-sku-summary">
-                                    Nhập danh sách SKU để mô phỏng xếp nhiều loại thùng trong cùng 1 container.
-                                </div>
-                            </section>
 
-                            <div class="action-row">
-                                <button id="recalculate-btn" type="button" class="primary-btn">Cập nhật tính toán</button>
-                                <button id="copy-report-btn" type="button" class="ghost-btn">Sao chép báo cáo</button>
-                            </div>
+                                    <div class="input-grid two">
+                                        <label>
+                                            <span>Dài pallet (cm)</span>
+                                            <input id="pal-l" type="number" step="0.1" min="1" value="121.9">
+                                        </label>
+                                        <label>
+                                            <span>Rộng pallet (cm)</span>
+                                            <input id="pal-w" type="number" step="0.1" min="1" value="101.6">
+                                        </label>
+                                    </div>
+
+                                    <div class="input-grid two">
+                                        <label>
+                                            <span>Chiều cao tối đa (cm)</span>
+                                            <input id="pal-max-h" type="number" step="0.1" min="1" value="160">
+                                        </label>
+                                        <label>
+                                            <span>Độ dày đế pallet (cm)</span>
+                                            <input id="pal-base" type="number" step="0.1" min="0" value="15">
+                                        </label>
+                                    </div>
+
+                                    <div class="subtle-note" id="pallet-quick-spec">
+                                        Pallet tính theo không gian hữu dụng sau khi trừ độ dày đế.
+                                    </div>
+                                    <div class="mini-readout" id="pallet-layer-spec">
+                                        1 layer pallet: -- thùng, độ phủ --%.
+                                    </div>
+                                    <div class="pallet-overhang-card" id="pallet-overhang-card">
+                                        <strong>Overhang check</strong>
+                                        <p id="pallet-overhang-safe">Khong overhang: --</p>
+                                        <p id="pallet-overhang-keep">Giu so thung cu: overhang L --, W --.</p>
+                                    </div>
+                                </section>
+
+                                <section class="step-panel" data-step-panel="3">
+                                    <label class="stacked-label">
+                                        <span>Loại container</span>
+                                        <select id="cont-type">
+                                            <option value="20dc">20' Dry Container (DC)</option>
+                                            <option value="40dc">40' Dry Container (DC)</option>
+                                            <option value="40hc">40' High Cube (HC)</option>
+                                            <option value="40rf" selected>40' Reefer (RF)</option>
+                                        </select>
+                                    </label>
+
+                                    <div class="input-grid three">
+                                        <label>
+                                            <span>Dài trong (cm)</span>
+                                            <input id="cont-l" type="number" step="0.1" min="1" value="1154">
+                                        </label>
+                                        <label>
+                                            <span>Rộng trong (cm)</span>
+                                            <input id="cont-w" type="number" step="0.1" min="1" value="228">
+                                        </label>
+                                        <label>
+                                            <span>Cao trong (cm)</span>
+                                            <input id="cont-h" type="number" step="0.1" min="1" value="223">
+                                        </label>
+                                    </div>
+                                    <div class="subtle-note" id="container-quick-spec">
+                                        Kích thước là thông số lọt lòng tham chiếu, có thể thay đổi tùy hãng tàu.
+                                    </div>
+                                </section>
+
+                                <section class="step-panel" data-step-panel="4">
+                                    <div class="field-group-title">Multi-SKU Loading (Beta)</div>
+                                    <label class="stacked-label">
+                                        <span>Loại container</span>
+                                        <select id="multi-cont-type">
+                                            <option value="20dc">20' Dry Container (DC)</option>
+                                            <option value="40dc">40' Dry Container (DC)</option>
+                                            <option value="40hc">40' High Cube (HC)</option>
+                                            <option value="40rf" selected>40' Reefer (RF)</option>
+                                        </select>
+                                    </label>
+                                    <div class="input-grid three">
+                                        <label>
+                                            <span>Dài trong (cm)</span>
+                                            <input id="multi-cont-l" type="number" step="0.1" min="1" value="1154">
+                                        </label>
+                                        <label>
+                                            <span>Rộng trong (cm)</span>
+                                            <input id="multi-cont-w" type="number" step="0.1" min="1" value="228">
+                                        </label>
+                                        <label>
+                                            <span>Cao trong (cm)</span>
+                                            <input id="multi-cont-h" type="number" step="0.1" min="1" value="223">
+                                        </label>
+                                    </div>
+                                    <div class="subtle-note">
+                                        Đóng trước vào trước và nằm sâu trong container. Đóng sau nằm gần cửa hơn.
+                                    </div>
+                                    <div class="multi-pack-controls">
+                                        <label class="stacked-label">
+                                            <span>Che do xep Multi-SKU</span>
+                                            <select id="multi-pack-mode">
+                                                <option value="maximize_qty" selected>Uu tien xep du so luong</option>
+                                                <option value="balanced">Can bang thu tu SKU</option>
+                                            </select>
+                                        </label>
+                                        <label class="multi-pack-checkbox">
+                                            <input id="multi-relax-tail" type="checkbox" checked>
+                                            <span>Noi nhe thu tu o cuoi container (de khong bi ket SKU)</span>
+                                        </label>
+                                    </div>
+                                    <div class="multi-sku-catalog">
+                                        <div class="multi-sku-catalog-head">Thu vien SKU (import nhanh)</div>
+                                        <textarea id="multi-sku-catalog-input" rows="5"
+                                            placeholder="Dan du lieu tu Excel/CSV: SKU, Units/Carton, L, W, H (co tieu de cang tot)."></textarea>
+                                        <div class="action-row multi-sku-catalog-actions">
+                                            <button id="multi-sku-catalog-import-btn" type="button"
+                                                class="ghost-btn">Import SKU</button>
+                                            <button id="multi-sku-catalog-clear-btn" type="button" class="ghost-btn">Xoa
+                                                thu vien</button>
+                                        </div>
+                                        <div id="multi-sku-catalog-status" class="mini-readout">Chua import thu vien
+                                            SKU.</div>
+                                    </div>
+                                    <div class="multi-view-toggles">
+                                        <label><input id="multi-show-shell" type="checkbox" checked> Hiện vỏ
+                                            container</label>
+                                        <label><input id="multi-xray-shell" type="checkbox" checked> Xem lòng
+                                            trong</label>
+                                    </div>
+                                    <div class="action-row multi-sku-actions">
+                                        <button id="multi-sku-add-btn" type="button" class="ghost-btn">+ Thêm
+                                            SKU</button>
+                                    </div>
+                                    <div id="multi-sku-list" class="multi-sku-list"></div>
+                                    <div class="multi-kpi-grid">
+                                        <article class="multi-kpi-card">
+                                            <span>Tong CBM da xep</span>
+                                            <strong id="multi-loaded-cbm">-- m3</strong>
+                                        </article>
+                                        <article class="multi-kpi-card">
+                                            <span>Tong so thung da xep</span>
+                                            <strong id="multi-loaded-boxes">--</strong>
+                                        </article>
+                                    </div>
+                                    <div class="mini-readout" id="multi-sku-summary">
+                                        Nhập danh sách SKU để mô phỏng xếp nhiều loại thùng trong cùng 1 container.
+                                    </div>
+                                </section>
+
+                                <div class="action-row">
+                                    <button id="recalculate-btn" type="button" class="primary-btn">Cập nhật tính
+                                        toán</button>
+                                    <button id="copy-report-btn" type="button" class="ghost-btn">Sao chép báo
+                                        cáo</button>
+                                </div>
                             </aside>
                         </div>
 
@@ -303,7 +307,8 @@
                             </div>
 
                             <div class="visual-stage">
-                                <canvas id="scene-canvas" width="1200" height="720" aria-label="Mô phỏng bố trí đóng gói"></canvas>
+                                <canvas id="scene-canvas" width="1200" height="720"
+                                    aria-label="Mô phỏng bố trí đóng gói"></canvas>
                                 <div class="scene-hint">
                                     <span>Kéo để xoay</span>
                                     <span>Cuộn để zoom</span>
@@ -320,7 +325,8 @@
                                             <span>Hiệu suất bước</span>
                                         </div>
                                     </div>
-                                    <p id="layout-note">Ứng dụng sẽ hiển thị gợi ý bố trí sau khi hoàn tất lần tính đầu tiên.</p>
+                                    <p id="layout-note">Ứng dụng sẽ hiển thị gợi ý bố trí sau khi hoàn tất lần tính đầu
+                                        tiên.</p>
                                 </div>
                             </div>
                         </section>
@@ -346,7 +352,7 @@
                     </section>
                 </div>
             </section>
-            
+
             <section id="view-pdf-splitter" class="portal-view" data-module-view="pdf-splitter" hidden>
                 <div class="app-shell splitter-shell">
                     <header class="module-header" aria-label="Page title">
@@ -368,16 +374,37 @@
                             <div class="input-grid two splitter-inputs">
                                 <label>
                                     <span>Vendor code</span>
-                                    <input id="vendorCode" type="text" placeholder="Ex: PAN" maxlength="20">
+                                    <select id="vendorCode">
+                                        <option value="">-- Chọn Vendor --</option>
+                                        <option value="CZY">CZY - Cozy</option>
+                                        <option value="CKF">CKF - CK Foods</option>
+                                        <option value="VNM">VNM - Vinamilk</option>
+                                    </select>
                                 </label>
                                 <label>
                                     <span>PO#</span>
-                                    <input id="poCode" type="text" placeholder="Ex: A100" maxlength="20">
+                                    <select id="poCode">
+                                        <option value="">-- Chọn PO# --</option>
+                                        <option value="A095">A095</option> <option value="A096">A096</option>
+                                        <option value="A097">A097</option> <option value="A098">A098</option>
+                                        <option value="A099">A099</option> <option value="A100">A100</option>
+                                        <option value="A101">A101</option> <option value="A102">A102</option>
+                                        <option value="A103">A103</option> <option value="A104">A104</option>
+                                        <option value="A105">A105</option> <option value="A106">A106</option>
+                                        <option value="A107">A107</option> <option value="A108">A108</option>
+                                        <option value="A109">A109</option> <option value="A110">A110</option>
+                                        <option value="A111">A111</option> <option value="A112">A112</option>
+                                        <option value="A113">A113</option> <option value="A114">A114</option>
+                                        <option value="A115">A115</option> <option value="A116">A116</option>
+                                        <option value="A117">A117</option> <option value="A118">A118</option>
+                                        <option value="A119">A119</option> <option value="A120">A120</option>
+                                    </select>
                                 </label>
                             </div>
 
                             <div class="action-row">
-                                <button id="processBtn" class="primary-btn" type="button" disabled>Split Documents</button>
+                                <button id="processBtn" class="primary-btn" type="button" disabled>Split
+                                    Documents</button>
                             </div>
 
                             <section class="processing">
@@ -397,8 +424,10 @@
                                     <p class="results-note">Click thumbnail to open preview popup.</p>
                                 </div>
                                 <div class="action-row">
-                                    <button id="downloadSelectedBtn" class="primary-btn" type="button">Tải xuống file đã chọn</button>
-                                    <button id="downloadAllBtn" class="ghost-btn" type="button">Tải xuống tất cả (ZIP)</button>
+                                    <button id="downloadSelectedBtn" class="primary-btn" type="button">Tải xuống file đã
+                                        chọn</button>
+                                    <button id="downloadAllBtn" class="ghost-btn" type="button">Tải xuống tất cả
+                                        (ZIP)</button>
                                 </div>
                             </div>
                             <div class="results-select-row">
@@ -407,7 +436,8 @@
                                 </div>
                                 <label class="bulk-check-label" for="selectAllDocs">Chọn tất cả</label>
                             </div>
-                            <p id="resultsEmptyState" class="results-empty">Chưa có kết quả. Hãy chọn PDF và bấm Split Documents.</p>
+                            <p id="resultsEmptyState" class="results-empty">Chưa có kết quả. Hãy chọn PDF và bấm Split
+                                Documents.</p>
                             <div id="resultsGrid" class="results-grid"></div>
                         </section>
                     </div>
@@ -429,4 +459,5 @@
 
     <script defer src="assets/shell.js"></script>
 </body>
+
 </html>
