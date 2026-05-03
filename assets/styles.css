@@ -9,9 +9,6 @@
   }
 }
 @layer utilities {
-  .visible {
-    visibility: visible;
-  }
   .start {
     inset-inline-start: var(--spacing);
   }
@@ -769,7 +766,7 @@ input:focus, select:focus {
   box-shadow: 0 14px 34px rgba(33, 24, 9, 0.12);
 }
 #view-logistics .ring-card {
-  display: block !important;
+  display: none;
 }
 .eff-ring {
   width: 140px;
@@ -1409,13 +1406,13 @@ input:focus, select:focus {
   text-overflow: clip;
 }
 #pallet-quick-spec, #pallet-layer-spec {
-  display: block !important;
+  display: none !important;
 }
 .highlight-card {
   display: none;
 }
 .breakdown-grid {
-  display: grid !important;
+  display: none;
 }
 .insights-grid {
   grid-template-columns: minmax(260px, 0.7fr) minmax(0, 1.3fr);
@@ -1742,7 +1739,7 @@ input:focus, select:focus {
   }
 }
 #view-logistics .visual-head {
-  display: flex !important;
+  display: none !important;
 }
 #view-logistics .controls-column {
   display: flex;
