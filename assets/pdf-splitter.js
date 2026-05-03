@@ -7,7 +7,6 @@ const OCR_OPTIONS = {
   langPath: "https://tessdata.projectnaptha.com/4.0.0"
 };
 
-// ĐÃ SỬA: Trỏ thẳng đến máy chủ Hugging Face của bạn
 const BACKEND_ANALYZER_DEFAULT_URL = "https://phucnguyenar1-ocrpdf.hf.space/analyze";
 const BACKEND_ANALYZER_STORAGE_KEY = "pdf_splitter_backend_analyzer_url";
 const BACKEND_ANALYZER_TIMEOUT_MS = 240000;
@@ -25,20 +24,11 @@ const THUMB_SCALE = 0.34;
 const MIN_TEXT_CHARS = 25;
 
 function readStoredAnalyzerUrl() {
-  try {
-    return localStorage.getItem(BACKEND_ANALYZER_STORAGE_KEY) || "";
-  } catch {
-    return "";
-  }
+  try { return localStorage.getItem(BACKEND_ANALYZER_STORAGE_KEY) || ""; } catch { return ""; }
 }
 
 function getQueryParam(name) {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    return params.get(name);
-  } catch {
-    return null;
-  }
+  try { const params = new URLSearchParams(window.location.search); return params.get(name); } catch { return null; }
 }
 
 function getRuntimeAnalyzerConfig() {
@@ -50,21 +40,12 @@ function getRuntimeAnalyzerConfig() {
 
   let analyzerUrl = String(queryAnalyzerUrl || fromConfig || fromStorage).trim();
 
-  // ĐÃ SỬA: Luôn dùng URL Hugging Face kể cả khi chạy trên Vercel
-  if (!analyzerUrl) {
-    analyzerUrl = BACKEND_ANALYZER_DEFAULT_URL;
-  }
+  if (!analyzerUrl) analyzerUrl = BACKEND_ANALYZER_DEFAULT_URL;
   analyzerUrl = analyzerUrl.replace(/\/+$/, "");
 
   const forceOff = queryUseAnalyzer === "0" || queryUseAnalyzer === "false";
   let useAnalyzer = false;
-
-  if (forceOff) {
-    useAnalyzer = false;
-  } else {
-    // Luôn bật AI Analyzer trên production Vercel
-    useAnalyzer = Boolean(analyzerUrl);
-  }
+  if (!forceOff) useAnalyzer = Boolean(analyzerUrl);
 
   return { analyzerUrl, useAnalyzer };
 }
@@ -111,24 +92,46 @@ const NORMALIZE_ASCII_CACHE = new Map();
 const APPROX_WORD_CACHE = new WeakMap();
 const AI_HEADER_DECISION_CACHE = new Map();
 
-function log(message, type = 'info') {
-  let icon = 'fa-info-circle';
-  // Tự động phân loại dựa trên nội dung text
-  if (message.includes('Error')) type = 'error';
-  else if (message.includes('Done') || message.includes('Ready:')) type = 'success';
-  else if (message.includes('...')) type = 'loading';
+// --- LOGIC VẼ THANH LOADING ĐẸP ---
+const devLog = console.log;
 
-  // Gán Icon tương ứng
-  if (type === 'success') icon = 'fa-check-circle';
-  else if (type === 'error') icon = 'fa-exclamation-circle';
-  else if (type === 'loading') icon = 'fa-spinner fa-spin';
+function updateProgress(percent, title, subtext, isError = false) {
+    const safePercent = Math.min(100, Math.max(0, percent));
+    const icon = isError ? 'fa-exclamation-triangle' : (percent >= 100 ? 'fa-check-circle' : 'fa-magic fa-spin');
 
-  const item = document.createElement('div');
-  item.className = `log-item ${type}`;
-  item.innerHTML = `<i class="fas ${icon} log-icon" style="margin-top: 2px;"></i> <span>${message}</span>`;
+    // Kiểm tra xem khung UI progress đã được vẽ lần nào chưa
+    let progressUI = logEl.querySelector('.progress-ui');
 
-  logEl.appendChild(item);
-  logEl.scrollTop = logEl.scrollHeight;
+    // Nếu chưa có (mới bắt đầu), thì vẽ khung sườn tĩnh
+    if (!progressUI) {
+        logEl.innerHTML = `
+            <div class="progress-ui">
+                <div class="progress-text" id="prog-title"></div>
+                <div class="progress-track">
+                    <div class="progress-fill" id="prog-fill" style="width: 0%;"></div>
+                </div>
+                <div class="progress-percent" id="prog-percent">0%</div>
+                <div class="progress-subtext" id="prog-subtext"></div>
+            </div>
+        `;
+    }
+
+    // Lấy các element có sẵn ra để cập nhật thông số (không vẽ lại từ đầu)
+    const titleEl = document.getElementById('prog-title');
+    const fillEl = document.getElementById('prog-fill');
+    const percentEl = document.getElementById('prog-percent');
+    const subtextEl = document.getElementById('prog-subtext');
+
+    // Cập nhật nội dung động
+    titleEl.className = `progress-text ${isError ? 'error-text' : ''}`;
+    titleEl.innerHTML = `<i class="fas ${icon}"></i> <span>${title}</span>`;
+    
+    // Thuộc tính width thay đổi sẽ kích hoạt hiệu ứng CSS transition chạy mượt mà
+    fillEl.style.width = `${safePercent}%`;
+    fillEl.style.background = isError ? '#ef4444' : 'linear-gradient(90deg, #0a9396, #005f73)';
+    
+    percentEl.textContent = `${Math.round(safePercent)}%`;
+    subtextEl.textContent = subtext;
 }
 
 function resetLog() {
@@ -147,9 +150,7 @@ function sanitizeCodePart(value) {
 
 function normalizeDocType(type) {
   const normalized = String(type || "").trim().toUpperCase();
-  if (KNOWN_DOC_TYPES.includes(normalized)) {
-    return normalized;
-  }
+  if (KNOWN_DOC_TYPES.includes(normalized)) return normalized;
   return "UNKNOWN";
 }
 
@@ -181,7 +182,6 @@ function fastHash(input) {
 function buildBackendAnalyzerEndpoints() {
   const base = String(BACKEND_ANALYZER_URL || "").trim().replace(/\/+$/, "");
   if (!base) return [];
-  // Gửi thẳng vào link Hugging Face
   return [base];
 }
 
@@ -212,9 +212,7 @@ function detectDocType(text, headerHint = "") {
   const compactHeader = normalizedHeader.replace(/\s+/g, "");
   const normalizedHeaderAscii = normalizeAscii(headerHint || text.slice(0, 1600));
   const headerType = resolveHeaderType(normalizedHeader, compactHeader, normalizedHeaderAscii);
-  if (headerType !== "UNKNOWN") {
-    return headerType;
-  }
+  if (headerType !== "UNKNOWN") return headerType;
 
   const words = normalizedFull.split(" ").filter(Boolean);
   const scored = buildTypeScores(normalizedFull, normalizedHeader, normalizedHeaderAscii, words);
@@ -609,7 +607,7 @@ function buildGroups(pageTypes) {
 
 async function getOcrWorker() {
   if (ocrWorker) return ocrWorker;
-  log("Initializing OCR engine...");
+  devLog("Initializing OCR engine...");
   ocrWorker = await Tesseract.createWorker("eng", 1, OCR_OPTIONS);
   return ocrWorker;
 }
@@ -716,7 +714,7 @@ async function runOcrOnPage(page, pageNumber, options) {
   if (preprocess) applyThreshold(context, canvas.width, canvas.height);
 
   const targetCanvas = buildOcrTargetCanvas(canvas, headerOnly, cropRatio);
-  log(`Page ${pageNumber}: OCR ${stage}...`);
+  devLog(`Page ${pageNumber}: OCR ${stage}...`);
   const worker = await getOcrWorker();
   const result = await worker.recognize(targetCanvas);
 
@@ -737,6 +735,15 @@ async function extractPageTypes(pdf) {
   const results = [];
 
   for (let i = 1; i <= pdf.numPages; i += 1) {
+    
+    // UI CẬP NHẬT PHẦN TRĂM KHI ĐỌC TỪNG TRANG (chiếm 60% tiến trình)
+    const currentPercent = 10 + (i / pdf.numPages) * 60;
+    updateProgress(
+        currentPercent, 
+        "Đang phân tích dữ liệu PDF...", 
+        `AI đang phân tích trang ${i}/${pdf.numPages}. Bạn đợi một chút nhé ☕`
+    );
+
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
     const nativeText = textContent.items.map((it) => it.str).join(" ").trim();
@@ -760,13 +767,13 @@ async function extractPageTypes(pdf) {
       }
 
       if (typeFirstPass === "UNKNOWN") {
-        if (USE_BACKEND_ANALYZER) log(`Page ${i}: AI header classify...`);
+        if (USE_BACKEND_ANALYZER) devLog(`Page ${i}: AI header classify...`);
         const aiDecision = await classifyPageByBackendHeaderAI(page, i, headerText);
         const aiAccepted = aiDecision?.accepted && hasReliableRuleSupportForType(aiDecision.type, finalText, headerText);
         if (aiAccepted) {
           aiForcedType = aiDecision.type; aiConfidence = aiDecision.confidence; source = `ai-header(${aiConfidence.toFixed(2)})`;
         } else {
-          if (aiDecision?.accepted) log(`Page ${i}: AI decision rejected by rule support gate.`);
+          if (aiDecision?.accepted) devLog(`Page ${i}: AI decision rejected by rule support gate.`);
           source = "ocr-full";
           const fullText = await runOcrOnPage(page, i, { scale: OCR_RENDER_SCALE, preprocess: false, headerOnly: false, stage: "full" });
           finalText = `${headerText}\n${fullText}`.trim();
@@ -789,13 +796,13 @@ async function extractPageTypes(pdf) {
       }
 
       if (typeFromTextLayer === "UNKNOWN") {
-        if (USE_BACKEND_ANALYZER) log(`Page ${i}: AI header classify...`);
+        if (USE_BACKEND_ANALYZER) devLog(`Page ${i}: AI header classify...`);
         const aiDecision = await classifyPageByBackendHeaderAI(page, i, headerText);
         const aiAccepted = aiDecision?.accepted && hasReliableRuleSupportForType(aiDecision.type, finalText, headerText);
         if (aiAccepted) {
           aiForcedType = aiDecision.type; aiConfidence = aiDecision.confidence; source = `text-layer+ai-header(${aiConfidence.toFixed(2)})`;
         } else {
-          if (aiDecision?.accepted) log(`Page ${i}: AI decision rejected by rule support gate.`);
+          if (aiDecision?.accepted) devLog(`Page ${i}: AI decision rejected by rule support gate.`);
           source = "text-layer+ocr-header";
           const headerOcr = await runOcrOnPage(page, i, { scale: OCR_HEADER_SCALE, preprocess: true, headerOnly: true, stage: "header-recover" });
           headerText = `${headerText}\n${headerOcr}`.trim(); finalText = `${finalText}\n${headerOcr}`.trim();
@@ -972,6 +979,14 @@ async function splitGroupsIncremental(arrayBuffer, groups, filePrefix, pdf) {
   const typeCount = {};
 
   for (let i = 0; i < groups.length; i += 1) {
+    // UI CẬP NHẬT PHẦN TRĂM LÚC TÁCH FILE (chiếm 25% tiến trình cuối)
+    const currentPercent = 70 + ((i+1) / groups.length) * 25;
+    updateProgress(
+        currentPercent, 
+        "Đang xuất file tài liệu...", 
+        `Hệ thống đang đóng gói nhóm tài liệu thứ ${i+1}/${groups.length}. Sắp xong rồi...`
+    );
+
     const group = groups[i];
     const out = await PDFLib.PDFDocument.create();
     const indices = group.pages.map((n) => n - 1);
@@ -990,7 +1005,7 @@ async function splitGroupsIncremental(arrayBuffer, groups, filePrefix, pdf) {
     const previewUrl = URL.createObjectURL(blob);
 
     const doc = { id: `doc-${i + 1}`, type: group.type, pages: group.pages.slice(), fileName, bytes, blob, previewUrl, thumbnail };
-    splitDocs.push(doc); appendDocCard(doc); log(`Ready: ${fileName}`);
+    splitDocs.push(doc); appendDocCard(doc); devLog(`Ready: ${fileName}`);
   }
 }
 
@@ -1000,7 +1015,10 @@ async function handleProcess() {
 
   const vendorCode = sanitizeCodePart(vendorCodeInput.value).toUpperCase();
   const poCode = sanitizeCodePart(poCodeInput.value).toUpperCase();
-  if (!vendorCode || !poCode) { log("Bạn chọn Vendor và PO# trước nha"); return; }
+  if (!vendorCode || !poCode) { 
+      updateProgress(0, "Thiếu thông tin", "Bạn vui lòng chọn Vendor và PO# ở phía trên nhé!", true);
+      return; 
+  }
   const filePrefix = `${vendorCode}${poCode}`;
 
   processBtn.disabled = true;
@@ -1008,45 +1026,55 @@ async function handleProcess() {
   document.getElementById("processingSection").classList.add("is-processing");
 
   try {
-    log(`Reading file: ${selectedFile.name}`);
+    updateProgress(5, "Bắt đầu tải file", "Hệ thống đang tiếp nhận file PDF của bạn...");
+
+    devLog(`Reading file: ${selectedFile.name}`);
     const arrayBuffer = await selectedFile.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
 
-    log("OCR fallback: ON");
-    log(`AI header classifier: ${USE_BACKEND_ANALYZER ? "ON" : "OFF"} (url=${BACKEND_ANALYZER_URL})`);
-    log("Detecting doc type per page...");
-
+    devLog("OCR fallback: ON");
+    devLog(`AI header classifier: ${USE_BACKEND_ANALYZER ? "ON" : "OFF"} (url=${BACKEND_ANALYZER_URL})`);
+    
+    // Giai đoạn 1: Quét từng trang (chiếm 10% đến 70%)
     const pageTypes = await extractPageTypes(pdf);
-    pageTypes.forEach((item) => log(`Page ${item.pageNumber}: ${item.type} (source=${item.source}, ai=${item.aiType || "UNKNOWN"}:${(item.aiConfidence || 0).toFixed(2)})`));
+    pageTypes.forEach((item) => devLog(`Page ${item.pageNumber}: ${item.type}`));
 
     const groups = buildGroups(pageTypes);
-    groups.forEach((group, idx) => log(`Group ${idx + 1}: ${group.type}, pages: ${group.pages.join(", ")}`));
 
-    log("Splitting documents and building previews...");
+    // Giai đoạn 2: Tiến hành cắt file (chiếm 70% đến 95%)
     lastBatchCode = filePrefix;
     await splitGroupsIncremental(arrayBuffer, groups, filePrefix, pdf);
-    log(`Done. ${splitDocs.length} split file(s) ready.`);
+    
+    // Hoàn thành
+    updateProgress(100, "Hoàn tất xuất sắc!", `Hệ thống đã tách xong ${splitDocs.length} tài liệu. Bạn hãy tải về ở cột bên cạnh nhé 🎉`);
+
   } catch (error) {
-    log(`Error: ${error.message || error}`);
+    devLog(`Error: ${error.message || error}`);
+    updateProgress(0, "Đã có lỗi xảy ra", error.message || "Tệp PDF không hợp lệ hoặc lỗi hệ thống", true);
   } finally {
     processBtn.disabled = false; 
     processBtn.innerHTML = 'Split Documents';
-    document.getElementById("processingSection").classList.remove("is-processing");
+    
+    // Ép tắt chế độ processing và ẩn spinner ngay lập tức
+    const processingSection = document.getElementById("processingSection");
+    if (processingSection) {
+        processingSection.classList.remove("is-processing");
+        // Force reflow để đảm bảo CSS được áp dụng ngay
+        void processingSection.offsetWidth; 
+    }
   }
 }
 
 async function handleDownloadAll() {
-  if (!splitDocs.length) { log("No split files yet."); return; }
+  if (!splitDocs.length) { devLog("No split files yet."); return; }
   downloadAllBtn.disabled = true;
   try {
-    log("Preparing ZIP for all split files...");
     const zipBlob = await buildZipBlob(splitDocs);
     const zipName = `split_docs_${lastBatchCode || "shipment"}.zip`;
     downloadBlob(zipBlob, zipName);
-    log(`Downloaded: ${zipName}`);
   } catch (error) {
-    log(`ZIP error: ${error.message || error}`);
+    devLog(`ZIP error: ${error.message || error}`);
   } finally {
     downloadAllBtn.disabled = false;
   }
@@ -1054,9 +1082,8 @@ async function handleDownloadAll() {
 
 function handleDownloadSelected() {
   const selected = getSelectedDocs();
-  if (!selected.length) { log("Please select at least one file."); return; }
+  if (!selected.length) { alert("Vui lòng chọn ít nhất 1 file để tải."); return; }
   selected.forEach((doc, idx) => { setTimeout(() => { downloadBlob(doc.blob, doc.fileName); }, idx * 180); });
-  log(`Downloading ${selected.length} selected file(s)...`);
 }
 
 dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("drag-over"); });
@@ -1084,7 +1111,7 @@ resultsGrid.addEventListener("click", (event) => {
   const button = event.target.closest("[data-download-id]");
   if (!button) return;
   const doc = getDocById(button.getAttribute("data-download-id"));
-  if (doc) { downloadBlob(doc.blob, doc.fileName); log(`Downloaded: ${doc.fileName}`); }
+  if (doc) { downloadBlob(doc.blob, doc.fileName); }
 });
 
 previewModal.addEventListener("click", (event) => { if (event.target.closest("[data-close-modal]")) closePreview(); });
