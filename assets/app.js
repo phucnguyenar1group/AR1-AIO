@@ -1535,7 +1535,7 @@ function setStep(step) {
     if (refs.multiDirectionHint) {
         refs.multiDirectionHint.hidden = step !== 4;
     }
-    render();
+    update();
 }
 
 function applyPalletPreset(key) {
@@ -1635,7 +1635,10 @@ function stageConfig(results) {
             quantity: plan.packedBoxes, unit: "THÙNG / CONT", efficiency: plan.volumeUtilization * 100,
             note: `Đã xếp ${integerFormatter.format(plan.packedBoxes)} thùng, còn trống ${integerFormatter.format(plan.unplacedBoxes)} thùng. CBM hàng: ${numberFormatter.format(plan.loadedCbm)} m3.`,
             bounds: { l: results.container.l, w: results.container.w, h: results.container.h }, placements: plan.placements,
-            showShell: refs.multiShowShell ? refs.multiShowShell.checked : true, xrayShell: refs.multiXrayShell ? refs.multiXrayShell.checked : true
+            showShell: refs.multiShowShell ? refs.multiShowShell.checked : true, xrayShell: refs.multiXrayShell ? refs.multiXrayShell.checked : true,
+            layout: { nx: plan.packedBoxes, ny: 1, nz: 1, base: 0 },
+            item: { l: 1, w: 1, h: 1 },
+            color: "#2e6de4"
         };
     }
 
@@ -1885,6 +1888,11 @@ function initThreeRenderer() {
     controls.rotateSpeed = 0.75;
     controls.update();
 
+    // THÊM ĐOẠN NÀY ĐỂ BÁO RẰNG NGƯỜI DÙNG ĐÃ TỰ CHỈNH CAMERA
+    controls.addEventListener('start', () => {
+        state.three.userAdjustedView = true;
+    });
+
     const hemiLight = new THREE.HemisphereLight(0xf1f5ff, 0xc2aa85, 1.08);
     scene.add(hemiLight);
     const keyLight = new THREE.DirectionalLight(0xffffff, 0.84);
@@ -2071,7 +2079,11 @@ function drawScene(stage) {
     initThreeRenderer();
     resizeCanvas();
     const stat = buildThreeStage(stage);
+
+    // THÊM ĐIỀU KIỆN: Chỉ tự động fit camera nếu người dùng chưa tự chỉnh
+    if (!state.three.userAdjustedView) {
     fitCameraToObject(state.three.stageGroup, true);
+    }
     
     if (stat.visibleCount < stat.total) {
         refs.layoutNote.textContent = integerFormatter.format(stage.quantity) + " " + stage.unit + ". " + stage.note + " Đang rút gọn hiển thị còn " + stat.visibleCount + "/" + stat.total + " khối để giữ hiệu năng.";
