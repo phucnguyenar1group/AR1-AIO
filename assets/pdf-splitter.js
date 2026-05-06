@@ -9,7 +9,7 @@ const OCR_OPTIONS = {
 
 const BACKEND_ANALYZER_DEFAULT_URL = "https://phucnguyenar1-ocrpdf.hf.space/analyze";
 const BACKEND_ANALYZER_STORAGE_KEY = "pdf_splitter_backend_analyzer_url";
-const BACKEND_ANALYZER_TIMEOUT_MS = 240000;
+const BACKEND_ANALYZER_TIMEOUT_MS = 25000;
 const AI_HEADER_RENDER_SCALE = 1.15;
 const AI_MIN_CONFIDENCE = 0.74;
 const AI_ANALYZER_TIMEOUT_MS = 9000;
@@ -22,6 +22,7 @@ const OCR_TITLE_HEIGHT_RATIO = 0.24;
 const OCR_HEADER_HEIGHT_RATIO = 0.52;
 const THUMB_SCALE = 0.34;
 const MIN_TEXT_CHARS = 25;
+const STRONG_TEXT_LAYER_CHARS = 900;
 
 function readStoredAnalyzerUrl() {
   try { return localStorage.getItem(BACKEND_ANALYZER_STORAGE_KEY) || ""; } catch { return ""; }
@@ -182,7 +183,8 @@ function fastHash(input) {
 function buildBackendAnalyzerEndpoints() {
   const base = String(BACKEND_ANALYZER_URL || "").trim().replace(/\/+$/, "");
   if (!base) return [];
-  return [base];
+  if (/\/analyze$/i.test(base)) return [base];
+  return [`${base}/analyze`, base];
 }
 
 function readBackendType(data) {
@@ -654,6 +656,9 @@ async function buildHeaderImageDataUrl(page) {
 
 async function classifyPageByBackendHeaderAI(page, pageNumber, hint) {
   if (!USE_BACKEND_ANALYZER) return null;
+  // Current HF backend accepts multipart PDF upload on /analyze (no per-page JSON endpoint).
+  // Skip page-level AI calls to avoid repeated 422/timeout when backend does not support this mode.
+  if (/\/analyze$/i.test(String(BACKEND_ANALYZER_URL || "").trim())) return null;
   const endpoints = buildBackendAnalyzerEndpoints();
   if (!endpoints.length) return null;
 
@@ -702,6 +707,110 @@ async function classifyPageByBackendHeaderAI(page, pageNumber, hint) {
   return decision;
 }
 
+function mapBackendAnalyzeToPageTypes(payload, totalPages) {
+  const rows = Array.isArray(payload?.data)
+    ? payload.data
+    : Array.isArray(payload?.results)
+      ? payload.results
+      : Array.isArray(payload)
+        ? payload
+        : null;
+  if (!rows || rows.length === 0) return null;
+
+  const byPage = new Map();
+  rows.forEach((item) => {
+    const rawPage = Number(item?.page ?? item?.pageNumber ?? item?.index ?? item?.result?.page ?? NaN);
+    if (!Number.isFinite(rawPage)) return;
+    const pageNumber = Math.round(rawPage);
+    if (pageNumber < 1 || pageNumber > totalPages) return;
+    const type = normalizeDocType(item?.type ?? item?.docType ?? item?.label ?? item?.result?.type ?? "UNKNOWN");
+    const sourceLabel = String(item?.source || "backend").trim() || "backend";
+
+    byPage.set(pageNumber, {
+      pageNumber,
+      type,
+      source: `hf-analyze:${sourceLabel}`,
+      aiType: type,
+      aiConfidence: type === "UNKNOWN" ? 0 : 1,
+      unknownBoost: type === "UNKNOWN" ? 1 : 0,
+      chars: 0,
+      headerType: type,
+      primaryScore: 0,
+      invScore: 0,
+      pklScore: 0,
+      bolScore: 0,
+      hcScore: 0,
+      pcScore: 0,
+      cooScore: 0,
+      coaScore: 0,
+      cadScore: 0
+    });
+  });
+
+  if (!byPage.size) return null;
+
+  const mapped = [];
+  for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
+    mapped.push(
+      byPage.get(pageNumber) || {
+        pageNumber,
+        type: "UNKNOWN",
+        source: "hf-analyze:missing-page",
+        aiType: "UNKNOWN",
+        aiConfidence: 0,
+        unknownBoost: 1,
+        chars: 0,
+        headerType: "UNKNOWN",
+        primaryScore: 0,
+        invScore: 0,
+        pklScore: 0,
+        bolScore: 0,
+        hcScore: 0,
+        pcScore: 0,
+        cooScore: 0,
+        coaScore: 0,
+        cadScore: 0
+      }
+    );
+  }
+  return mapped;
+}
+
+async function analyzePdfByBackend(file, totalPages) {
+  if (!USE_BACKEND_ANALYZER || !file) return null;
+  const endpoints = buildBackendAnalyzerEndpoints();
+  if (!endpoints.length) return null;
+
+  for (const endpoint of endpoints) {
+    try {
+      const formData = new FormData();
+      formData.append("file", file, file.name || "document.pdf");
+      const response = await withTimeout(
+        fetch(endpoint, {
+          method: "POST",
+          body: formData
+        }),
+        BACKEND_ANALYZER_TIMEOUT_MS,
+        "AI analyzer timeout"
+      );
+      if (!response.ok) {
+        devLog(`HF analyze failed (${endpoint}): HTTP ${response.status}`);
+        continue;
+      }
+      const payload = await response.json();
+      const mapped = mapBackendAnalyzeToPageTypes(payload, totalPages);
+      if (!mapped) {
+        devLog(`HF analyze invalid payload (${endpoint}).`);
+        continue;
+      }
+      return { endpoint, pageTypes: mapped };
+    } catch (error) {
+      devLog(`HF analyze error (${endpoint}): ${error?.message || error}`);
+    }
+  }
+  return null;
+}
+
 async function runOcrOnPage(page, pageNumber, options) {
   const { scale, preprocess, headerOnly, stage, cropRatio = OCR_HEADER_HEIGHT_RATIO } = options;
   const viewport = page.getViewport({ scale });
@@ -731,7 +840,16 @@ async function makeThumbnailFromPage(page) {
   return canvas.toDataURL("image/jpeg", 0.82);
 }
 
-async function extractPageTypes(pdf) {
+async function extractPageTypes(pdf, sourceFile = null) {
+  if (USE_BACKEND_ANALYZER && sourceFile) {
+    const backendResult = await analyzePdfByBackend(sourceFile, pdf.numPages);
+    if (backendResult?.pageTypes?.length) {
+      devLog(`HF analyze success via ${backendResult.endpoint}`);
+      return backendResult.pageTypes;
+    }
+    devLog("HF analyze unavailable, fallback to local OCR pipeline.");
+  }
+
   const results = [];
 
   for (let i = 1; i <= pdf.numPages; i += 1) {
@@ -752,60 +870,32 @@ async function extractPageTypes(pdf) {
       let typeFirstPass = detectDocType(finalText, headerText);
 
       if (typeFirstPass === "UNKNOWN") {
-        source = "ocr-header";
-        const headerOcr = await runOcrOnPage(page, i, { scale: OCR_HEADER_SCALE, preprocess: true, headerOnly: true, stage: "header" });
-        headerText = `${titleText}\n${headerOcr}`.trim(); finalText = headerText;
-        typeFirstPass = detectDocType(finalText, headerText);
-      }
-
-      if (typeFirstPass === "UNKNOWN") {
-        if (USE_BACKEND_ANALYZER) devLog(`Page ${i}: AI header classify...`);
-        const aiDecision = await classifyPageByBackendHeaderAI(page, i, headerText);
-        const aiAccepted = aiDecision?.accepted && hasReliableRuleSupportForType(aiDecision.type, finalText, headerText);
-        if (aiAccepted) {
-          aiForcedType = aiDecision.type; aiConfidence = aiDecision.confidence; source = `ai-header(${aiConfidence.toFixed(2)})`;
-        } else {
-          if (aiDecision?.accepted) devLog(`Page ${i}: AI decision rejected by rule support gate.`);
-          source = "ocr-full";
-          const fullText = await runOcrOnPage(page, i, { scale: OCR_RENDER_SCALE, preprocess: false, headerOnly: false, stage: "full" });
-          finalText = `${headerText}\n${fullText}`.trim();
-          typeFirstPass = detectDocType(finalText, headerText);
-        }
-      }
-
-      if (typeFirstPass === "UNKNOWN" && aiForcedType === "UNKNOWN") {
-        source = "ocr-retry";
-        const retryText = await runOcrOnPage(page, i, { scale: OCR_RETRY_SCALE, preprocess: true, headerOnly: false, stage: "retry" });
-        finalText = `${finalText}\n${retryText}`.trim();
+        // Fast path: jump directly to one full-page OCR pass.
+        // This avoids multiple expensive OCR rounds (header/full/retry).
+        source = "ocr-full-fast";
+        const fullText = await runOcrOnPage(page, i, { scale: OCR_RENDER_SCALE, preprocess: true, headerOnly: false, stage: "full-fast" });
+        finalText = `${headerText}\n${fullText}`.trim();
       }
     } else {
       let typeFromTextLayer = detectDocType(finalText, headerText);
+      const strongTextLayer = nativeText.length >= STRONG_TEXT_LAYER_CHARS;
       if (typeFromTextLayer === "UNKNOWN") {
+        if (strongTextLayer) {
+          // Avoid expensive OCR recover when text-layer is already substantial.
+          // In many mixed PDFs this recovers very little accuracy but adds large latency.
+          source = "text-layer-strong";
+        } else {
         source = "text-layer+ocr-title";
         const titleRecover = await runOcrOnPage(page, i, { scale: OCR_TITLE_SCALE, preprocess: false, headerOnly: true, cropRatio: OCR_TITLE_HEIGHT_RATIO, stage: "title-recover" });
         headerText = `${headerText}\n${titleRecover}`.trim(); finalText = `${finalText}\n${titleRecover}`.trim();
         typeFromTextLayer = detectDocType(finalText, headerText);
+        }
       }
 
-      if (typeFromTextLayer === "UNKNOWN") {
-        if (USE_BACKEND_ANALYZER) devLog(`Page ${i}: AI header classify...`);
-        const aiDecision = await classifyPageByBackendHeaderAI(page, i, headerText);
-        const aiAccepted = aiDecision?.accepted && hasReliableRuleSupportForType(aiDecision.type, finalText, headerText);
-        if (aiAccepted) {
-          aiForcedType = aiDecision.type; aiConfidence = aiDecision.confidence; source = `text-layer+ai-header(${aiConfidence.toFixed(2)})`;
-        } else {
-          if (aiDecision?.accepted) devLog(`Page ${i}: AI decision rejected by rule support gate.`);
-          source = "text-layer+ocr-header";
-          const headerOcr = await runOcrOnPage(page, i, { scale: OCR_HEADER_SCALE, preprocess: true, headerOnly: true, stage: "header-recover" });
-          headerText = `${headerText}\n${headerOcr}`.trim(); finalText = `${finalText}\n${headerOcr}`.trim();
-          typeFromTextLayer = detectDocType(finalText, headerText);
-
-          if (typeFromTextLayer === "UNKNOWN") {
-            source = "text-layer+ocr-full";
-            const fullRecover = await runOcrOnPage(page, i, { scale: OCR_RENDER_SCALE, preprocess: false, headerOnly: false, stage: "full-recover" });
-            finalText = `${finalText}\n${fullRecover}`.trim();
-          }
-        }
+      if (typeFromTextLayer === "UNKNOWN" && !strongTextLayer) {
+        source = "text-layer+ocr-full";
+        const fullRecover = await runOcrOnPage(page, i, { scale: OCR_RENDER_SCALE, preprocess: true, headerOnly: false, stage: "full-recover" });
+        finalText = `${finalText}\n${fullRecover}`.trim();
       }
     }
 
@@ -1115,7 +1205,7 @@ async function handleProcess() {
     devLog(`AI header classifier: ${USE_BACKEND_ANALYZER ? "ON" : "OFF"}`);
 
     // 4. Giai đoạn 1: Phân tích trang (Sử dụng updateProgress bên trong extractPageTypes)
-    const pageTypes = await extractPageTypes(pdf);
+    const pageTypes = await extractPageTypes(pdf, selectedFile);
     const groups = buildGroups(pageTypes);
 
     // 5. Giai đoạn 2: Tiến hành cắt và xuất file
