@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tạo barcode</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-50 p-4 md:p-8 text-slate-900">
+  <div class="max-w-6xl mx-auto">
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+      <div>
+        <h1 class="text-3xl font-bold text-indigo-700">Tạo barcode</h1>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-full">
+        <h2 class="text-lg font-semibold mb-4">Nhập mã item# tại đây</h2>
+        <form id="addForm" class="flex gap-3">
+          <input
+            id="newItemId"
+            type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            maxlength="5"
+            placeholder="Nhập Item# 5 số (vd: 71282)"
+            class="flex-1 border border-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          >
+          <button type="submit" class="bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-indigo-700">Tạo barcode</button>
+        </form>
+        <p id="itemError" class="text-xs text-red-500 mt-2 hidden">Item phải đúng 5 chữ số.</p>
+      </div>
+
+      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-full">
+        <h2 class="text-lg font-semibold mb-4">Cấu hình tiền tố</h2>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Tiền tố nhãn</label>
+            <select id="prefix" class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white">
+              <option value="721557" selected>721557</option>
+              <option value="850067">850067</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Tiền tố thùng</label>
+            <input id="cartonPrefix" type="text" value="20" readonly class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-slate-100 text-slate-500 cursor-not-allowed">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <div class="flex items-center justify-between gap-4">
+        <h2 id="listTitle" class="text-xl font-bold">Barcode đã tạo (0)</h2>
+        <input id="search" type="text" placeholder="Tìm item..." class="px-4 py-1.5 border border-slate-200 rounded-full text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+      </div>
+      <div id="emptyState" class="bg-white border border-dashed border-slate-300 rounded-xl p-12 text-center text-slate-400 hidden">
+        Chưa có item nào. Hãy thêm item ở trên để bắt đầu.
+      </div>
+      <div id="cards" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+    </div>
+  </div>
+
+  <div id="previewModal" class="fixed inset-0 bg-black/70 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-auto">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+        <p id="previewTitle" class="text-sm font-semibold text-slate-700">Xem trước barcode</p>
+        <button id="previewCloseBtn" class="text-sm px-3 py-1 rounded bg-slate-100 hover:bg-slate-200">Đóng</button>
+      </div>
+      <div class="p-4 flex items-center justify-center">
+        <img id="previewImage" src="" alt="Preview barcode" class="max-w-full max-h-[78vh] object-contain">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      items: [
+        { id: "71432" },
+        { id: "73164" }
+      ]
+    };
+
+    const refs = {
+      addForm: document.getElementById("addForm"),
+      newItemId: document.getElementById("newItemId"),
+      itemError: document.getElementById("itemError"),
+      prefix: document.getElementById("prefix"),
+      cartonPrefix: document.getElementById("cartonPrefix"),
+      search: document.getElementById("search"),
+      cards: document.getElementById("cards"),
+      listTitle: document.getElementById("listTitle"),
+      emptyState: document.getElementById("emptyState"),
+      previewModal: document.getElementById("previewModal"),
+      previewImage: document.getElementById("previewImage"),
+      previewTitle: document.getElementById("previewTitle"),
+      previewCloseBtn: document.getElementById("previewCloseBtn")
+    };
+
+    const COPY_ICON_SVG = `
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      </svg>
+    `;
+    const CHECK_ICON_SVG = `
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M20 6 9 17l-5-5"></path>
+      </svg>
+    `;
+
+    function getBarcodeUrl(text, type) {
+      const bcid = type === "label" ? "upca" : "itf14";
+      const params = type === "label"
+        ? "&includetext&scale=10&height=15&textsize=12&backgroundcolor=ffffff&paddingwidth=2&paddingheight=2"
+        : "&includetext&scale=10&rotate=N";
+      return `https://bwipjs-api.metafloor.com/?bcid=${bcid}&text=${encodeURIComponent(text)}${params}`;
+    }
+
+    function computeModulo10CheckDigit(baseDigits) {
+      const raw = String(baseDigits || "").replace(/\D/g, "");
+      let sum = 0;
+      let weight3 = true;
+      for (let i = raw.length - 1; i >= 0; i -= 1) {
+        const d = Number(raw[i]);
+        sum += weight3 ? d * 3 : d;
+        weight3 = !weight3;
+      }
+      return String((10 - (sum % 10)) % 10);
+    }
+
+    function generateCodes(id) {
+      const itemId = String(id || "").replace(/\D/g, "").slice(0, 5);
+      const labelPrefix = String(refs.prefix.value || "").trim();
+      const cartonPrefix = String(refs.cartonPrefix.value || "").trim();
+
+      const labelBase = `${labelPrefix}${itemId}`;      // 11 digits
+      const labelCode = `${labelBase}${computeModulo10CheckDigit(labelBase)}`; // UPC-A 12
+
+      const cartonBase = `${cartonPrefix}${labelBase}`; // 13 digits
+      const cartonCode = `${cartonBase}${computeModulo10CheckDigit(cartonBase)}`; // ITF-14 14
+
+      return { labelCode, cartonCode };
+    }
+
+    async function downloadBarcode(url, filename) {
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = `${filename}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function openPreview(src, title) {
+      refs.previewImage.src = src || "";
+      refs.previewTitle.textContent = title || "Xem trước barcode";
+      refs.previewModal.classList.remove("hidden");
+      refs.previewModal.classList.add("flex");
+    }
+
+    function closePreview() {
+      refs.previewModal.classList.add("hidden");
+      refs.previewModal.classList.remove("flex");
+      refs.previewImage.src = "";
+    }
+
+    function render() {
+      const q = refs.search.value.trim().toLowerCase();
+      const filtered = state.items.filter((it) =>
+        !q || it.id.toLowerCase().includes(q) || it.labelCode.includes(q) || it.cartonCode.includes(q)
+      );
+
+      refs.listTitle.textContent = `Barcode đã tạo (${filtered.length})`;
+      refs.emptyState.classList.toggle("hidden", filtered.length !== 0);
+      refs.cards.innerHTML = filtered.map((item) => `
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden hover:border-indigo-200 transition-colors">
+          <div class="p-4 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center gap-2">
+            <div>
+              <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded mr-2">ITEM</span>
+              <span class="font-mono font-bold text-lg">${item.id}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button data-dl-both="${item.id}" class="text-xs px-2 py-1 rounded bg-indigo-100 text-indigo-700 hover:bg-indigo-200">Tải cả 2</button>
+              <button data-remove-id="${item.id}" class="text-xs px-2 py-1 rounded bg-slate-200 text-slate-700 hover:bg-red-100 hover:text-red-600">Xóa</button>
+            </div>
+          </div>
+          <div class="p-4 grid grid-cols-2 gap-4">
+            <div class="flex flex-col items-center">
+              <p class="text-[10px] font-bold text-slate-400 uppercase mb-2">barcode nhãn (UPC-A)</p>
+              <div class="bg-white border border-slate-100 p-2 rounded mb-2 w-full h-24 flex items-center justify-center">
+                <img
+                  src="${getBarcodeUrl(item.labelCode, "label")}"
+                  alt="barcode nhãn"
+                  class="max-h-full cursor-zoom-in"
+                  data-preview-src="${getBarcodeUrl(item.labelCode, "label")}"
+                  data-preview-title="Barcode nhãn - Item ${item.id}"
+                >
+              </div>
+              <div class="w-full mb-3 flex items-center justify-center gap-2">
+                <p class="text-xs font-mono break-all text-center" title="${item.labelCode}">${item.labelCode}</p>
+                <button data-copy-text="${item.labelCode}" class="text-slate-500 hover:text-indigo-600 inline-flex items-center justify-center" title="Copy chuỗi barcode" aria-label="Copy chuỗi barcode">${COPY_ICON_SVG}</button>
+              </div>
+              <button data-dl-label="${item.id}" class="w-full py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs hover:bg-slate-200">Tải barcode nhãn</button>
+            </div>
+            <div class="flex flex-col items-center">
+              <p class="text-[10px] font-bold text-slate-400 uppercase mb-2">Barcode thùng (ITF-14)</p>
+              <div class="bg-white border border-slate-100 p-2 rounded mb-2 w-full h-24 flex items-center justify-center">
+                <img
+                  src="${getBarcodeUrl(item.cartonCode, "carton")}"
+                  alt="barcode thùng"
+                  class="max-h-full cursor-zoom-in"
+                  data-preview-src="${getBarcodeUrl(item.cartonCode, "carton")}"
+                  data-preview-title="Barcode thùng - Item ${item.id}"
+                >
+              </div>
+              <div class="w-full mb-3 flex items-center justify-center gap-2">
+                <p class="text-xs font-mono break-all text-center" title="${item.cartonCode}">${item.cartonCode}</p>
+                <button data-copy-text="${item.cartonCode}" class="text-slate-500 hover:text-indigo-600 inline-flex items-center justify-center" title="Copy chuỗi barcode" aria-label="Copy chuỗi barcode">${COPY_ICON_SVG}</button>
+              </div>
+              <button data-dl-carton="${item.id}" class="w-full py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs hover:bg-slate-200">Tải barcode thùng</button>
+            </div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    refs.addForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const id = refs.newItemId.value.trim().replace(/\D/g, "").slice(0, 5);
+      refs.newItemId.value = id;
+      if (id.length !== 5) {
+        refs.itemError.textContent = "Item phải đúng 5 chữ số.";
+        refs.itemError.classList.remove("hidden");
+        return;
+      }
+      refs.itemError.classList.add("hidden");
+      const { labelCode, cartonCode } = generateCodes(id);
+      state.items.unshift({ id, labelCode, cartonCode });
+      refs.newItemId.value = "";
+      render();
+    });
+
+    refs.newItemId.addEventListener("input", () => {
+      const raw = refs.newItemId.value;
+      const hasNonDigit = /\D/.test(raw);
+      const digitsOnly = raw.replace(/\D/g, "");
+      const overLimit = digitsOnly.length > 5;
+
+      if (hasNonDigit) {
+        refs.itemError.textContent = "Chỉ được nhập số.";
+        refs.itemError.classList.remove("hidden");
+      } else if (overLimit) {
+        refs.itemError.textContent = "Chỉ được tối đa 5 chữ số.";
+        refs.itemError.classList.remove("hidden");
+      } else {
+        refs.itemError.classList.add("hidden");
+      }
+
+      refs.newItemId.value = digitsOnly.slice(0, 5);
+    });
+
+    refs.search.addEventListener("input", render);
+    refs.prefix.addEventListener("change", () => {
+      state.items = state.items.map((it) => {
+        const { labelCode, cartonCode } = generateCodes(it.id);
+        return { ...it, labelCode, cartonCode };
+      });
+      render();
+    });
+
+    refs.cards.addEventListener("click", (e) => {
+      const copyBtn = e.target.closest("[data-copy-text]");
+      if (copyBtn) {
+        const copyText = copyBtn.getAttribute("data-copy-text");
+        navigator.clipboard.writeText(copyText).then(() => {
+          const original = copyBtn.innerHTML;
+          copyBtn.innerHTML = CHECK_ICON_SVG;
+          setTimeout(() => {
+            copyBtn.innerHTML = original;
+          }, 900);
+        }).catch(() => {});
+        return;
+      }
+
+      const previewNode = e.target.closest("[data-preview-src]");
+      if (previewNode) {
+        openPreview(
+          previewNode.getAttribute("data-preview-src"),
+          previewNode.getAttribute("data-preview-title")
+        );
+        return;
+      }
+
+      const removeId = e.target.getAttribute("data-remove-id");
+      if (removeId) {
+        state.items = state.items.filter((it) => it.id !== removeId);
+        render();
+        return;
+      }
+
+      const dlLabel = e.target.getAttribute("data-dl-label");
+      if (dlLabel) {
+        const it = state.items.find((x) => x.id === dlLabel);
+        if (it) downloadBarcode(getBarcodeUrl(it.labelCode, "label"), `label_${it.id}`);
+        return;
+      }
+
+      const dlBoth = e.target.getAttribute("data-dl-both");
+      if (dlBoth) {
+        const it = state.items.find((x) => x.id === dlBoth);
+        if (it) {
+          downloadBarcode(getBarcodeUrl(it.labelCode, "label"), `label_${it.id}`);
+          setTimeout(() => {
+            downloadBarcode(getBarcodeUrl(it.cartonCode, "carton"), `carton_${it.id}`);
+          }, 180);
+        }
+        return;
+      }
+
+      const dlCarton = e.target.getAttribute("data-dl-carton");
+      if (dlCarton) {
+        const it = state.items.find((x) => x.id === dlCarton);
+        if (it) downloadBarcode(getBarcodeUrl(it.cartonCode, "carton"), `carton_${it.id}`);
+      }
+    });
+
+    refs.previewCloseBtn.addEventListener("click", closePreview);
+    refs.previewModal.addEventListener("click", (e) => {
+      if (e.target === refs.previewModal) closePreview();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !refs.previewModal.classList.contains("hidden")) {
+        closePreview();
+      }
+    });
+
+    state.items = state.items.map((it) => {
+      const { labelCode, cartonCode } = generateCodes(it.id);
+      return { ...it, labelCode, cartonCode };
+    });
+    render();
+  </script>
+</body>
+</html>
