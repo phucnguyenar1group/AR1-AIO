@@ -99,6 +99,7 @@ const refs = {
     boxW: document.getElementById("box-w"),
     boxH: document.getElementById("box-h"),
     targetQty: document.getElementById("target-qty"),
+    boxKeepUpright: document.getElementById("box-keep-upright"),
     cartonL: document.getElementById("carton-l"),
     cartonW: document.getElementById("carton-w"),
     cartonH: document.getElementById("carton-h"),
@@ -1079,6 +1080,22 @@ function generateSafetyLayouts(targetQty) {
     return [...balancedRanked, ...relaxedRanked].slice(0, 12);
 }
 function uniqueBoxOrientations(box) {
+    if (box.keepUpright) {
+        const upright = [
+            { l: box.l, w: box.w, h: box.h },
+            { l: box.w, w: box.l, h: box.h }
+        ];
+        const seenUpright = new Set();
+        return upright.filter((orientation) => {
+            const key = `${orientation.l}|${orientation.w}|${orientation.h}`;
+            if (seenUpright.has(key)) {
+                return false;
+            }
+            seenUpright.add(key);
+            return true;
+        });
+    }
+
     const permutations = [
         [box.l, box.w, box.h],
         [box.l, box.h, box.w],
@@ -1272,7 +1289,8 @@ function readFormState() {
             l: Math.max(0.1, boxL),
             w: Math.max(0.1, boxW),
             h: Math.max(0.1, boxH),
-            target: Math.max(1, targetQty)
+            target: Math.max(1, targetQty),
+            keepUpright: refs.boxKeepUpright ? refs.boxKeepUpright.checked : false
         };
     } else if (state.step === 4 && multiSkuRows.length > 0) {
         // Allow Multi-SKU tab to run independently even when tab 1 inputs are blank.
@@ -1281,7 +1299,8 @@ function readFormState() {
             l: Math.max(0.1, seed.l),
             w: Math.max(0.1, seed.w),
             h: Math.max(0.1, seed.h),
-            target: Math.max(1, Math.min(24, seed.qty))
+            target: Math.max(1, Math.min(24, seed.qty)),
+            keepUpright: false
         };
     } else {
         return null;
@@ -1941,9 +1960,10 @@ function renderSafetyScoring(form, scoring) {
     const practicalNote = scoring.usedPracticalFallback
         ? " Chưa tìm được option nào thật sự đẹp theo tiêu chí thực dụng, nên đang hiển thị cả phương án fallback."
         : " Danh sách đã loại bớt các kiểu thùng quá cao, đáy quá hẹp hoặc không hợp xếp pallet.";
+    const uprightNote = form.box.keepUpright ? " Đang khóa chiều H của sản phẩm, chỉ cho xoay mặt đáy L/W." : "";
     refs.safetySummary.textContent = state.cartonManual
-        ? `Bạn đang chỉnh tay dim carton ở mục 2. Pallet. Nhấn chọn 1 phương án bên dưới nếu muốn quay lại dùng dim gợi ý tự động. Hệ thống đang ưu tiên thùng thấp, đáy ngang và tránh xếp kiểu cột cao.${practicalNote} Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`
-        : `Chỉ số chung: Safety Index = BCT hiệu dụng / tải yêu cầu. Đạt khi >= 1.0. Hệ thống đang ưu tiên thùng thấp, đáy ngang và tránh xếp kiểu cột cao để phù hợp thao tác thực tế.${practicalNote} Nhấn chọn 1 phương án bên dưới để dùng dim thùng đó cho mục 2. Pallet. Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`;
+        ? `Bạn đang chỉnh tay dim carton ở mục 2. Pallet. Nhấn chọn 1 phương án bên dưới nếu muốn quay lại dùng dim gợi ý tự động. Hệ thống đang ưu tiên thùng thấp, đáy ngang và tránh xếp kiểu cột cao.${practicalNote}${uprightNote} Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`
+        : `Chỉ số chung: Safety Index = BCT hiệu dụng / tải yêu cầu. Đạt khi >= 1.0. Hệ thống đang ưu tiên thùng thấp, đáy ngang và tránh xếp kiểu cột cao để phù hợp thao tác thực tế.${practicalNote}${uprightNote} Nhấn chọn 1 phương án bên dưới để dùng dim thùng đó cho mục 2. Pallet. Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`;
 
     refs.safetyOptions.innerHTML = scoring.options.map((option) => {
         const statusClass = [
@@ -2428,6 +2448,15 @@ function registerEvents() {
             update();
         });
     });
+    if (refs.boxKeepUpright) {
+        refs.boxKeepUpright.addEventListener("change", () => {
+            state.cartonManual = false;
+            state.selectedSafetyOptionId = "";
+            state.activePreset = "";
+            document.querySelectorAll(".preset-btn").forEach((button) => button.classList.remove("active"));
+            update();
+        });
+    }
 
     [
         refs.cartonL, refs.cartonW, refs.cartonH,
