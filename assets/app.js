@@ -1035,21 +1035,22 @@ function safetyOptionId(layout, dims, orientation) {
 function generateSafetyLayouts(targetQty) {
     const exactQty = Math.max(1, targetQty);
     const seen = new Set();
-    const balanced = [];
+    const preferred = [];
     const relaxed = [];
 
-    for (let nx = 1; nx <= exactQty; nx += 1) {
-        if (exactQty % nx !== 0) {
+    for (let nz = 1; nz <= exactQty; nz += 1) {
+        if (exactQty % nz !== 0) {
             continue;
         }
-        const rem = exactQty / nx;
-        for (let ny = 1; ny <= rem; ny += 1) {
-            if (rem % ny !== 0) {
+        const baseQty = exactQty / nz;
+        for (let nx = 1; nx <= baseQty; nx += 1) {
+            if (baseQty % nx !== 0) {
                 continue;
             }
-            const nz = rem / ny;
-            const normalized = [nx, ny, nz].sort((a, b) => a - b);
-            const key = layoutKey(normalized[0], normalized[1], normalized[2]);
+            const ny = baseQty / nx;
+            const baseLong = Math.max(nx, ny);
+            const baseShort = Math.min(nx, ny);
+            const key = layoutKey(baseLong, baseShort, nz);
             if (seen.has(key)) {
                 continue;
             }
@@ -1057,23 +1058,23 @@ function generateSafetyLayouts(targetQty) {
 
             const item = {
                 key,
-                nx: normalized[0],
-                ny: normalized[1],
-                nz: normalized[2],
+                nx: baseLong,
+                ny: baseShort,
+                nz,
                 qty: exactQty,
-                compactness: Math.abs(normalized[2] - normalized[1]) + Math.abs(normalized[1] - normalized[0])
+                compactness: Math.abs(baseLong - baseShort) + Math.abs(baseShort - nz)
             };
             relaxed.push(item);
 
-            if (normalized[0] >= 2 && (normalized[2] / normalized[0]) <= 3) {
-                balanced.push(item);
+            if (baseShort >= 2 && nz <= Math.max(3, Math.ceil(baseLong / 2))) {
+                preferred.push(item);
             }
         }
     }
 
-    const balancedRanked = balanced.sort((a, b) => a.compactness - b.compactness);
+    const balancedRanked = preferred.sort((a, b) => a.compactness - b.compactness);
     const relaxedRanked = relaxed
-        .filter((item) => !balanced.some((candidate) => candidate.key === item.key))
+        .filter((item) => !preferred.some((candidate) => candidate.key === item.key))
         .sort((a, b) => a.compactness - b.compactness);
     return [...balancedRanked, ...relaxedRanked].slice(0, 12);
 }
