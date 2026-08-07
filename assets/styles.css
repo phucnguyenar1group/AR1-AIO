@@ -2503,9 +2503,9 @@ input:focus, select:focus {
   }
   #view-logistics .control-panel {
     height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    overflow: hidden;
   }
   #view-logistics .step-panel {
     margin-top: 12px;
@@ -2514,12 +2514,14 @@ input:focus, select:focus {
     background: transparent;
     border-radius: 0;
     flex: 1 1 auto;
-    min-height: 220px;
+    min-height: 0;
   }
   #view-logistics .step-panel.active {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    overflow-y: auto;
+    padding-right: 6px;
   }
   #view-logistics .step-panel .input-grid {
     gap: 12px;
@@ -2541,8 +2543,9 @@ input:focus, select:focus {
     border-radius: 12px;
   }
   #view-logistics .action-row {
-    margin-top: auto;
+    margin-top: 12px;
     padding-top: 12px;
+    flex-shrink: 0;
   }
   #view-logistics .visual-head {
     margin-bottom: 12px;
