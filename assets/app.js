@@ -1482,37 +1482,56 @@ function computeSingleLayoutSafety(box, safety, layout, orientation) {
     };
 }
 
+function compareSafetyOptions(a, b) {
+    if (a.passCompression !== b.passCompression) {
+        return a.passCompression ? -1 : 1;
+    }
+    if (a.passGross !== b.passGross) {
+        return a.passGross ? -1 : 1;
+    }
+
+    const aDimsVolume = volumeOf(a.dims);
+    const bDimsVolume = volumeOf(b.dims);
+    const aMarginToPass = Math.abs(a.safetyIndex - 1);
+    const bMarginToPass = Math.abs(b.safetyIndex - 1);
+
+    if (a.passCompression && b.passCompression) {
+        if (a.stabilityIndex !== b.stabilityIndex) {
+            return a.stabilityIndex - b.stabilityIndex;
+        }
+        if (aDimsVolume !== bDimsVolume) {
+            return aDimsVolume - bDimsVolume;
+        }
+        if (aMarginToPass !== bMarginToPass) {
+            return aMarginToPass - bMarginToPass;
+        }
+        if (a.layout.compactness !== b.layout.compactness) {
+            return a.layout.compactness - b.layout.compactness;
+        }
+        return a.safetyIndex - b.safetyIndex;
+    }
+
+    if (aMarginToPass !== bMarginToPass) {
+        return aMarginToPass - bMarginToPass;
+    }
+    if (a.stabilityIndex !== b.stabilityIndex) {
+        return a.stabilityIndex - b.stabilityIndex;
+    }
+    if (aDimsVolume !== bDimsVolume) {
+        return aDimsVolume - bDimsVolume;
+    }
+    return b.safetyIndex - a.safetyIndex;
+}
+
 function evaluateSafetyScoring(form) {
     const layouts = generateSafetyLayouts(form.box.target);
     const options = layouts.map((layout) => {
         const orientations = uniqueBoxOrientations(form.box).map((orientation) => computeSingleLayoutSafety(form.box, form.safety, layout, orientation));
-        orientations.sort((a, b) => {
-            if (a.passCompression !== b.passCompression) {
-                return a.passCompression ? -1 : 1;
-            }
-            if (a.passGross !== b.passGross) {
-                return a.passGross ? -1 : 1;
-            }
-            if (a.safetyIndex !== b.safetyIndex) {
-                return b.safetyIndex - a.safetyIndex;
-            }
-            return a.stabilityIndex - b.stabilityIndex;
-        });
+        orientations.sort(compareSafetyOptions);
         return orientations[0];
     });
 
-    const ranked = [...options].sort((a, b) => {
-        if (a.passCompression !== b.passCompression) {
-            return a.passCompression ? -1 : 1;
-        }
-        if (a.passGross !== b.passGross) {
-            return a.passGross ? -1 : 1;
-        }
-        if (a.safetyIndex !== b.safetyIndex) {
-            return b.safetyIndex - a.safetyIndex;
-        }
-        return a.stabilityIndex - b.stabilityIndex;
-    });
+    const ranked = [...options].sort(compareSafetyOptions);
 
     return {
         options: ranked.slice(0, 6),
@@ -1737,7 +1756,7 @@ function renderSafetyScoring(form, scoring) {
     refs.safetyWinner.textContent = `Safety winner: ${winner.key} (${passTag})`;
 
     const patternLabel = form.safety.pattern === "interlock" ? "interlock" : "column";
-    refs.safetySummary.textContent = `Chỉ số chung: Safety Index = BCT hiệu dụng / tải yêu cầu. Càng cao càng an toàn. Đạt khi >= 1.0. Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`;
+    refs.safetySummary.textContent = `Chỉ số chung: Safety Index = BCT hiệu dụng / tải yêu cầu. Đạt khi >= 1.0. Trong các layout đã đạt, ưu tiên dáng thùng ổn định và gọn; score chỉ dùng để tránh layout thiếu tải hoặc dư an toàn quá mức. Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`;
 
     refs.safetyOptions.innerHTML = scoring.options.map((option) => {
         const statusClass = option.key === winner.key ? "safety-option recommended" : "safety-option";
