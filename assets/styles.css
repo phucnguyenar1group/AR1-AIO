@@ -1231,20 +1231,69 @@ label span, .stacked-label span {
   gap: 10px;
 }
 .safety-option {
+  appearance: none;
   border: 1px solid rgba(68, 56, 37, 0.12);
   border-radius: 12px;
   padding: 10px 12px;
   background: rgba(255, 255, 255, 0.9);
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+.safety-option:hover {
+  transform: translateY(-1px);
+  border-color: rgba(76, 99, 216, 0.28);
 }
 .safety-option.recommended {
   border-color: rgba(76, 99, 216, 0.42);
   box-shadow: inset 0 0 0 1px rgba(76, 99, 216, 0.2);
+}
+.safety-option.active {
+  border-color: rgba(0, 95, 115, 0.46);
+  box-shadow: 0 10px 22px rgba(0, 95, 115, 0.12), inset 0 0 0 1px rgba(0, 95, 115, 0.14);
+  background: rgba(244, 251, 250, 0.98);
 }
 .safety-option-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+.safety-option-title {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.safety-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.safety-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(76, 99, 216, 0.08);
+  color: #4c63d8;
+}
+.safety-badge.active {
+  background: rgba(0, 95, 115, 0.12);
+  color: #005f73;
+}
+.safety-badge.ok {
+  background: rgba(26, 127, 55, 0.1);
+  color: #1a7f37;
+}
+.safety-badge.warn {
+  background: rgba(180, 35, 24, 0.1);
+  color: #b42318;
 }
 .safety-score-value {
   font-weight: 800;

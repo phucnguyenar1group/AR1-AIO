@@ -70,6 +70,7 @@ const state = {
     activePreset: "baseline",
     results: null,
     cartonManual: false,
+    selectedSafetyOptionId: "",
     multiSkuRows: [],
     multiSkuNextId: 1,
     skuCatalog: [],
@@ -1019,6 +1020,18 @@ function layoutKey(nx, ny, nz) {
     return `${nx}x${ny}x${nz}`;
 }
 
+function safetyOptionId(layout, dims, orientation) {
+    return [
+        layout.key,
+        round(dims.l),
+        round(dims.w),
+        round(dims.h),
+        round(orientation.l),
+        round(orientation.w),
+        round(orientation.h)
+    ].join("|");
+}
+
 function generateSafetyLayouts(targetQty) {
     const exactQty = Math.max(1, targetQty);
     const seen = new Set();
@@ -1058,9 +1071,11 @@ function generateSafetyLayouts(targetQty) {
         }
     }
 
-    const ranked = (balanced.length > 0 ? balanced : relaxed)
+    const balancedRanked = balanced.sort((a, b) => a.compactness - b.compactness);
+    const relaxedRanked = relaxed
+        .filter((item) => !balanced.some((candidate) => candidate.key === item.key))
         .sort((a, b) => a.compactness - b.compactness);
-    return ranked.slice(0, 12);
+    return [...balancedRanked, ...relaxedRanked].slice(0, 12);
 }
 function uniqueBoxOrientations(box) {
     const permutations = [
@@ -1319,21 +1334,8 @@ function computeResults() {
     }
     const safetyScoring = evaluateSafetyScoring(form);
     const fallbackCarton = suggestCarton(form.box, form.box.target);
-    const carton = safetyScoring.winner
-        ? {
-            l: safetyScoring.winner.dims.l,
-            w: safetyScoring.winner.dims.w,
-            h: safetyScoring.winner.dims.h,
-            qty: safetyScoring.winner.qty,
-            nx: safetyScoring.winner.layout.nx,
-            ny: safetyScoring.winner.layout.ny,
-            nz: safetyScoring.winner.layout.nz,
-            orientation: safetyScoring.winner.orientation,
-            usedVolume: safetyScoring.winner.qty * volumeOf(safetyScoring.winner.orientation),
-            footprintWaste: 0,
-            overshoot: 0
-        }
-        : fallbackCarton;
+    const selectedSafetyOption = safetyScoring.selected || safetyScoring.winner;
+    const carton = buildCartonFromSafetyOption(selectedSafetyOption) || fallbackCarton;
     syncCartonLoadInputsFromSuggestion(carton);
     const cartonLoad = {
         l: Math.max(1, readNumber(refs.cartonL, carton.l)),
@@ -1438,6 +1440,7 @@ function computeResults() {
             waste: 100 - clamp(efficiencies.total, 0, 100)
         },
         efficiencies,
+        selectedSafetyOption,
         safetyScoring,
         palletOverhang,
         multiSkuPlan
@@ -1465,6 +1468,7 @@ function computeSingleLayoutSafety(box, safety, layout, orientation) {
     const passCompression = safetyIndex >= 1;
 
     return {
+        id: safetyOptionId(layout, dims, orientation),
         key: layout.key,
         layout,
         dims,
@@ -1482,6 +1486,25 @@ function computeSingleLayoutSafety(box, safety, layout, orientation) {
     };
 }
 
+function getPalletPreviewForSafetyOption(option, pallet) {
+    const palletSpace = {
+        l: pallet.l,
+        w: pallet.w,
+        h: Math.max(1, pallet.maxH - pallet.base)
+    };
+    const fit = getBestFit(
+        { l: option.dims.l, w: option.dims.w, h: option.dims.h },
+        palletSpace
+    );
+    return {
+        layerQty: fit.nx * fit.ny,
+        maxLayers: fit.nz,
+        totalQty: fit.total,
+        realH: pallet.base + (fit.nz * option.dims.h),
+        orientation: fit.item
+    };
+}
+
 function compareSafetyOptions(a, b) {
     if (a.passCompression !== b.passCompression) {
         return a.passCompression ? -1 : 1;
@@ -1496,6 +1519,15 @@ function compareSafetyOptions(a, b) {
     const bMarginToPass = Math.abs(b.safetyIndex - 1);
 
     if (a.passCompression && b.passCompression) {
+        if (a.palletPreview && b.palletPreview && a.palletPreview.totalQty !== b.palletPreview.totalQty) {
+            return b.palletPreview.totalQty - a.palletPreview.totalQty;
+        }
+        if (a.palletPreview && b.palletPreview && a.palletPreview.maxLayers !== b.palletPreview.maxLayers) {
+            return b.palletPreview.maxLayers - a.palletPreview.maxLayers;
+        }
+        if (a.palletPreview && b.palletPreview && a.palletPreview.layerQty !== b.palletPreview.layerQty) {
+            return b.palletPreview.layerQty - a.palletPreview.layerQty;
+        }
         if (a.stabilityIndex !== b.stabilityIndex) {
             return a.stabilityIndex - b.stabilityIndex;
         }
@@ -1525,17 +1557,42 @@ function compareSafetyOptions(a, b) {
 
 function evaluateSafetyScoring(form) {
     const layouts = generateSafetyLayouts(form.box.target);
-    const options = layouts.map((layout) => {
-        const orientations = uniqueBoxOrientations(form.box).map((orientation) => computeSingleLayoutSafety(form.box, form.safety, layout, orientation));
-        orientations.sort(compareSafetyOptions);
-        return orientations[0];
-    });
+    const options = layouts.flatMap((layout) =>
+        uniqueBoxOrientations(form.box).map((orientation) => {
+            const option = computeSingleLayoutSafety(form.box, form.safety, layout, orientation);
+            return {
+                ...option,
+                palletPreview: getPalletPreviewForSafetyOption(option, form.pallet)
+            };
+        })
+    );
 
     const ranked = [...options].sort(compareSafetyOptions);
+    const selected = ranked.find((option) => option.id === state.selectedSafetyOptionId) || ranked[0] || null;
 
     return {
-        options: ranked.slice(0, 6),
-        winner: ranked[0] || null
+        options: ranked.slice(0, 12),
+        winner: ranked[0] || null,
+        selected
+    };
+}
+
+function buildCartonFromSafetyOption(option) {
+    if (!option) {
+        return null;
+    }
+    return {
+        l: option.dims.l,
+        w: option.dims.w,
+        h: option.dims.h,
+        qty: option.qty,
+        nx: option.layout.nx,
+        ny: option.layout.ny,
+        nz: option.layout.nz,
+        orientation: option.orientation,
+        usedVolume: option.qty * volumeOf(option.orientation),
+        footprintWaste: 0,
+        overshoot: 0
     };
 }
 
@@ -1602,6 +1659,7 @@ function applyScenario(key) {
     }
 
     state.activePreset = key;
+    state.selectedSafetyOptionId = "";
     refs.boxL.value = scenario.box.l;
     refs.boxW.value = scenario.box.w;
     refs.boxH.value = scenario.box.h;
@@ -1745,30 +1803,50 @@ function renderMultiSkuSummary(results) {
 function renderSafetyScoring(form, scoring) {
     if (!refs.safetyWinner || !refs.safetySummary || !refs.safetyOptions) return;
     if (!scoring.winner) {
-        refs.safetyWinner.textContent = "Safety winner: --";
+        refs.safetyWinner.textContent = "Phương án đang dùng: --";
         refs.safetySummary.textContent = `Không có layout hợp lệ cho đúng target ${integerFormatter.format(form.box.target)} units/carton.`;
         refs.safetyOptions.innerHTML = "";
         return;
     }
 
     const winner = scoring.winner;
-    const passTag = winner.passCompression && winner.passGross ? "PASS" : "RISK";
-    refs.safetyWinner.textContent = `Safety winner: ${winner.key} (${passTag})`;
+    const selected = state.cartonManual ? null : (scoring.selected || winner);
+    if (selected) {
+        const passTag = selected.passCompression && selected.passGross ? "PASS" : "RISK";
+        refs.safetyWinner.textContent = `Phương án đang dùng cho Pallet: ${selected.key} (${passTag})`;
+    } else {
+        refs.safetyWinner.textContent = "Pallet đang dùng dim chỉnh tay";
+    }
 
     const patternLabel = form.safety.pattern === "interlock" ? "interlock" : "column";
-    refs.safetySummary.textContent = `Chỉ số chung: Safety Index = BCT hiệu dụng / tải yêu cầu. Đạt khi >= 1.0. Trong các layout đã đạt, ưu tiên dáng thùng ổn định và gọn; score chỉ dùng để tránh layout thiếu tải hoặc dư an toàn quá mức. Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`;
+    refs.safetySummary.textContent = state.cartonManual
+        ? `Bạn đang chỉnh tay dim carton ở mục 2. Pallet. Nhấn chọn 1 phương án bên dưới nếu muốn quay lại dùng dim gợi ý tự động. Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`
+        : `Chỉ số chung: Safety Index = BCT hiệu dụng / tải yêu cầu. Đạt khi >= 1.0. Nhấn chọn 1 phương án bên dưới để dùng dim thùng đó cho mục 2. Pallet. Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`;
 
     refs.safetyOptions.innerHTML = scoring.options.map((option) => {
-        const statusClass = option.key === winner.key ? "safety-option recommended" : "safety-option";
+        const statusClass = [
+            "safety-option",
+            option.id === winner.id ? "recommended" : "",
+            selected && option.id === selected.id ? "active" : ""
+        ].filter(Boolean).join(" ");
         const safetyClass = option.safetyIndex >= 1 ? "ok" : "warn";
+        const selectedBadge = selected && option.id === selected.id ? `<span class="safety-badge active">Đang dùng</span>` : "";
+        const recommendedBadge = option.id === winner.id ? `<span class="safety-badge">Gợi ý mặc định</span>` : "";
+        const riskBadge = option.passCompression && option.passGross
+            ? `<span class="safety-badge ok">PASS</span>`
+            : `<span class="safety-badge warn">RISK</span>`;
         return `
-            <article class="${statusClass}">
+            <button type="button" class="${statusClass}" data-safety-option-id="${option.id}">
                 <div class="safety-option-head">
-                    <strong>${option.key}</strong>
+                    <div class="safety-option-title">
+                        <strong>${option.key}</strong>
+                        <div class="safety-badges">${selectedBadge}${recommendedBadge}${riskBadge}</div>
+                    </div>
                     <span class="safety-score-value ${safetyClass}">${numberFormatter.format(round(option.safetyIndex, 2))}</span>
                 </div>
-                <p>Bố trí: ${option.layout.nx}x${option.layout.ny}x${option.layout.nz} | Dim: ${formatDims(option.dims)} | Qty: ${integerFormatter.format(option.qty)}</p>
-            </article>
+                <p>Bố trí: ${option.layout.nx}x${option.layout.ny}x${option.layout.nz} | Dim: ${formatDims(option.dims)} | H thùng: ${formatCm(option.dims.h)} | Qty: ${integerFormatter.format(option.qty)}</p>
+                <p>Preview pallet: ${integerFormatter.format(option.palletPreview.layerQty)} thùng/layer x ${integerFormatter.format(option.palletPreview.maxLayers)} layer = ${integerFormatter.format(option.palletPreview.totalQty)} thùng/pallet.</p>
+            </button>
         `;
     }).join("");
 }
@@ -2152,8 +2230,8 @@ function renderEmptyState() {
     
     refs.containerQuickSpec.textContent = "Nhập dữ liệu đóng gói để tính floor loading container.";
     
-    if (refs.safetyWinner) refs.safetyWinner.textContent = "Safety winner: --";
-    if (refs.safetySummary) refs.safetySummary.textContent = "Nhập dữ liệu để đề xuất phương án bố trí carton an toàn hơn.";
+    if (refs.safetyWinner) refs.safetyWinner.textContent = "Phương án đang dùng: --";
+    if (refs.safetySummary) refs.safetySummary.textContent = "Nhập dữ liệu để xem nhiều phương án carton và chọn phương án dùng cho Pallet.";
     if (refs.safetyOptions) refs.safetyOptions.innerHTML = "";
 
     refs.cartonBreakdownTitle.textContent = "--"; refs.cartonBreakdownBody.textContent = "Chờ dữ liệu đầu vào.";
@@ -2222,6 +2300,7 @@ function registerEvents() {
     [refs.boxL, refs.boxW, refs.boxH, refs.targetQty].forEach((input) => {
         input.addEventListener("input", () => {
             state.cartonManual = false;
+            state.selectedSafetyOptionId = "";
             state.activePreset = "";
             document.querySelectorAll(".preset-btn").forEach((button) => button.classList.remove("active"));
             update();
@@ -2242,6 +2321,12 @@ function registerEvents() {
         input.addEventListener("input", () => {
             if (input === refs.cartonL || input === refs.cartonW || input === refs.cartonH) {
                 state.cartonManual = true;
+            } else if (
+                input === refs.safetyNetG || input === refs.safetyTareKg || input === refs.safetyGrossLimit ||
+                input === refs.safetyEct || input === refs.safetyCaliperMm || input === refs.safetyStackLayers ||
+                input === refs.safetyFactor
+            ) {
+                state.selectedSafetyOptionId = "";
             }
             state.activePreset = "";
             document.querySelectorAll(".preset-btn").forEach((button) => button.classList.remove("active"));
@@ -2253,8 +2338,30 @@ function registerEvents() {
         if (!select) {
             return;
         }
-        select.addEventListener("change", update);
+        select.addEventListener("change", () => {
+            state.selectedSafetyOptionId = "";
+            update();
+        });
     });
+    if (refs.safetyOptions) {
+        refs.safetyOptions.addEventListener("click", (event) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) {
+                return;
+            }
+            const optionButton = target.closest("[data-safety-option-id]");
+            if (!optionButton) {
+                return;
+            }
+            const optionId = optionButton.getAttribute("data-safety-option-id");
+            if (!optionId) {
+                return;
+            }
+            state.selectedSafetyOptionId = optionId;
+            state.cartonManual = false;
+            update();
+        });
+    }
 
     if (refs.multiSkuAddBtn) {
         refs.multiSkuAddBtn.addEventListener("click", () => {
