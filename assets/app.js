@@ -1505,6 +1505,70 @@ function getPalletPreviewForSafetyOption(option, pallet) {
     };
 }
 
+function getErgonomicProfile(option) {
+    const baseLong = Math.max(option.dims.l, option.dims.w);
+    const baseShort = Math.min(option.dims.l, option.dims.w);
+    const height = option.dims.h;
+    const baseAspect = baseLong / Math.max(1, baseShort);
+    const lowProfileRatio = height / Math.max(1, baseLong);
+    const narrowBasePenalty = (option.layout.nx === 1 ? 1 : 0) + (option.layout.ny === 1 ? 1 : 0);
+    const towerPenalty = Math.max(0, option.layout.nz - Math.max(option.layout.nx, option.layout.ny));
+    const tallPenalty = height > baseLong ? 1 : 0;
+    const aspectPenalty = Math.abs(baseAspect - 1.6);
+    const onePersonPenalty =
+        Math.max(0, height - 38) / 10 +
+        Math.max(0, baseLong - 58) / 12 +
+        Math.max(0, baseShort - 42) / 10;
+
+    return {
+        baseLong,
+        baseShort,
+        height,
+        baseAspect,
+        lowProfileRatio,
+        narrowBasePenalty,
+        towerPenalty,
+        tallPenalty,
+        aspectPenalty,
+        onePersonPenalty
+    };
+}
+
+function compareErgonomicProfile(a, b) {
+    if (a.narrowBasePenalty !== b.narrowBasePenalty) {
+        return a.narrowBasePenalty - b.narrowBasePenalty;
+    }
+    if (a.towerPenalty !== b.towerPenalty) {
+        return a.towerPenalty - b.towerPenalty;
+    }
+    if (a.tallPenalty !== b.tallPenalty) {
+        return a.tallPenalty - b.tallPenalty;
+    }
+    if (a.lowProfileRatio !== b.lowProfileRatio) {
+        return a.lowProfileRatio - b.lowProfileRatio;
+    }
+    if (a.height !== b.height) {
+        return a.height - b.height;
+    }
+    if (a.onePersonPenalty !== b.onePersonPenalty) {
+        return a.onePersonPenalty - b.onePersonPenalty;
+    }
+    if (a.aspectPenalty !== b.aspectPenalty) {
+        return a.aspectPenalty - b.aspectPenalty;
+    }
+    return 0;
+}
+
+function safetyOptionDimsSignature(option) {
+    return [
+        option.key,
+        round(Math.min(option.dims.l, option.dims.w)),
+        round(Math.max(option.dims.l, option.dims.w)),
+        round(option.dims.h),
+        option.qty
+    ].join("|");
+}
+
 function compareSafetyOptions(a, b) {
     if (a.passCompression !== b.passCompression) {
         return a.passCompression ? -1 : 1;
@@ -1517,13 +1581,17 @@ function compareSafetyOptions(a, b) {
     const bDimsVolume = volumeOf(b.dims);
     const aMarginToPass = Math.abs(a.safetyIndex - 1);
     const bMarginToPass = Math.abs(b.safetyIndex - 1);
+    const ergonomicComparison = compareErgonomicProfile(a.ergonomic, b.ergonomic);
 
     if (a.passCompression && b.passCompression) {
-        if (a.palletPreview && b.palletPreview && a.palletPreview.totalQty !== b.palletPreview.totalQty) {
-            return b.palletPreview.totalQty - a.palletPreview.totalQty;
+        if (ergonomicComparison !== 0) {
+            return ergonomicComparison;
         }
         if (a.palletPreview && b.palletPreview && a.palletPreview.maxLayers !== b.palletPreview.maxLayers) {
             return b.palletPreview.maxLayers - a.palletPreview.maxLayers;
+        }
+        if (a.palletPreview && b.palletPreview && a.palletPreview.totalQty !== b.palletPreview.totalQty) {
+            return b.palletPreview.totalQty - a.palletPreview.totalQty;
         }
         if (a.palletPreview && b.palletPreview && a.palletPreview.layerQty !== b.palletPreview.layerQty) {
             return b.palletPreview.layerQty - a.palletPreview.layerQty;
@@ -1543,6 +1611,9 @@ function compareSafetyOptions(a, b) {
         return a.safetyIndex - b.safetyIndex;
     }
 
+    if (ergonomicComparison !== 0) {
+        return ergonomicComparison;
+    }
     if (aMarginToPass !== bMarginToPass) {
         return aMarginToPass - bMarginToPass;
     }
@@ -1562,12 +1633,15 @@ function evaluateSafetyScoring(form) {
             const option = computeSingleLayoutSafety(form.box, form.safety, layout, orientation);
             return {
                 ...option,
-                palletPreview: getPalletPreviewForSafetyOption(option, form.pallet)
+                palletPreview: getPalletPreviewForSafetyOption(option, form.pallet),
+                ergonomic: getErgonomicProfile(option)
             };
         })
     );
 
-    const ranked = [...options].sort(compareSafetyOptions);
+    const ranked = [...options]
+        .sort(compareSafetyOptions)
+        .filter((option, index, array) => index === array.findIndex((candidate) => safetyOptionDimsSignature(candidate) === safetyOptionDimsSignature(option)));
     const selected = ranked.find((option) => option.id === state.selectedSafetyOptionId) || ranked[0] || null;
 
     return {
@@ -1820,8 +1894,8 @@ function renderSafetyScoring(form, scoring) {
 
     const patternLabel = form.safety.pattern === "interlock" ? "interlock" : "column";
     refs.safetySummary.textContent = state.cartonManual
-        ? `Bạn đang chỉnh tay dim carton ở mục 2. Pallet. Nhấn chọn 1 phương án bên dưới nếu muốn quay lại dùng dim gợi ý tự động. Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`
-        : `Chỉ số chung: Safety Index = BCT hiệu dụng / tải yêu cầu. Đạt khi >= 1.0. Nhấn chọn 1 phương án bên dưới để dùng dim thùng đó cho mục 2. Pallet. Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`;
+        ? `Bạn đang chỉnh tay dim carton ở mục 2. Pallet. Nhấn chọn 1 phương án bên dưới nếu muốn quay lại dùng dim gợi ý tự động. Hệ thống đang ưu tiên thùng thấp, đáy ngang và tránh xếp kiểu cột cao. Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`
+        : `Chỉ số chung: Safety Index = BCT hiệu dụng / tải yêu cầu. Đạt khi >= 1.0. Hệ thống đang ưu tiên thùng thấp, đáy ngang và tránh xếp kiểu cột cao để phù hợp thao tác thực tế. Nhấn chọn 1 phương án bên dưới để dùng dim thùng đó cho mục 2. Pallet. Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`;
 
     refs.safetyOptions.innerHTML = scoring.options.map((option) => {
         const statusClass = [
