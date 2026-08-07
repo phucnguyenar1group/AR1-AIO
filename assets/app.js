@@ -1569,6 +1569,35 @@ function safetyOptionDimsSignature(option) {
     ].join("|");
 }
 
+function isPracticalSafetyOption(option, targetQty) {
+    if (!option || !option.ergonomic || !option.palletPreview) {
+        return false;
+    }
+
+    if (option.palletPreview.maxLayers < 1 || option.palletPreview.totalQty < 1) {
+        return false;
+    }
+
+    if (option.ergonomic.lowProfileRatio > 1.05) {
+        return false;
+    }
+
+    const tallestBaseAxis = Math.max(option.layout.nx, option.layout.ny);
+    if (option.layout.nz > Math.max(3, Math.ceil(tallestBaseAxis * 1.5))) {
+        return false;
+    }
+
+    if (targetQty >= 12 && (option.layout.nx < 2 || option.layout.ny < 2)) {
+        return false;
+    }
+
+    if (option.ergonomic.narrowBasePenalty >= 2) {
+        return false;
+    }
+
+    return true;
+}
+
 function compareSafetyOptions(a, b) {
     if (a.passCompression !== b.passCompression) {
         return a.passCompression ? -1 : 1;
@@ -1639,15 +1668,18 @@ function evaluateSafetyScoring(form) {
         })
     );
 
-    const ranked = [...options]
+    const rankedAll = [...options]
         .sort(compareSafetyOptions)
         .filter((option, index, array) => index === array.findIndex((candidate) => safetyOptionDimsSignature(candidate) === safetyOptionDimsSignature(option)));
+    const practicalRanked = rankedAll.filter((option) => isPracticalSafetyOption(option, form.box.target));
+    const ranked = practicalRanked.length > 0 ? practicalRanked : rankedAll;
     const selected = ranked.find((option) => option.id === state.selectedSafetyOptionId) || ranked[0] || null;
 
     return {
         options: ranked.slice(0, 12),
         winner: ranked[0] || null,
-        selected
+        selected,
+        usedPracticalFallback: practicalRanked.length === 0
     };
 }
 
@@ -1893,9 +1925,12 @@ function renderSafetyScoring(form, scoring) {
     }
 
     const patternLabel = form.safety.pattern === "interlock" ? "interlock" : "column";
+    const practicalNote = scoring.usedPracticalFallback
+        ? " Chưa tìm được option nào thật sự đẹp theo tiêu chí thực dụng, nên đang hiển thị cả phương án fallback."
+        : " Danh sách đã loại bớt các kiểu thùng quá cao, đáy quá hẹp hoặc không hợp xếp pallet.";
     refs.safetySummary.textContent = state.cartonManual
-        ? `Bạn đang chỉnh tay dim carton ở mục 2. Pallet. Nhấn chọn 1 phương án bên dưới nếu muốn quay lại dùng dim gợi ý tự động. Hệ thống đang ưu tiên thùng thấp, đáy ngang và tránh xếp kiểu cột cao. Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`
-        : `Chỉ số chung: Safety Index = BCT hiệu dụng / tải yêu cầu. Đạt khi >= 1.0. Hệ thống đang ưu tiên thùng thấp, đáy ngang và tránh xếp kiểu cột cao để phù hợp thao tác thực tế. Nhấn chọn 1 phương án bên dưới để dùng dim thùng đó cho mục 2. Pallet. Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`;
+        ? `Bạn đang chỉnh tay dim carton ở mục 2. Pallet. Nhấn chọn 1 phương án bên dưới nếu muốn quay lại dùng dim gợi ý tự động. Hệ thống đang ưu tiên thùng thấp, đáy ngang và tránh xếp kiểu cột cao.${practicalNote} Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`
+        : `Chỉ số chung: Safety Index = BCT hiệu dụng / tải yêu cầu. Đạt khi >= 1.0. Hệ thống đang ưu tiên thùng thấp, đáy ngang và tránh xếp kiểu cột cao để phù hợp thao tác thực tế.${practicalNote} Nhấn chọn 1 phương án bên dưới để dùng dim thùng đó cho mục 2. Pallet. Chỉ xét layout đúng ${integerFormatter.format(form.box.target)} units/carton, RH ${form.safety.humidity}%, ${patternLabel}.`;
 
     refs.safetyOptions.innerHTML = scoring.options.map((option) => {
         const statusClass = [
