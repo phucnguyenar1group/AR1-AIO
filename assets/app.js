@@ -1575,6 +1575,18 @@ function isPracticalSafetyOption(option, targetQty) {
         return false;
     }
 
+    if (option.ergonomic.baseLong > 60) {
+        return false;
+    }
+
+    if (option.ergonomic.baseAspect > 2.6) {
+        return false;
+    }
+
+    if (targetQty >= 12 && option.ergonomic.baseShort < 20) {
+        return false;
+    }
+
     if (option.palletPreview.maxLayers < 1 || option.palletPreview.totalQty < 1) {
         return false;
     }
